@@ -1,0 +1,28 @@
+{
+    "someList": [
+        {
+            "fieldOne": {
+                "irrelevantInformation": 0,
+                "isPresent": false,
+                "otherIrrelevantInformation": 1
+            },
+            "fieldTwo": {
+                "irrelevantInformation": 0,
+                "isPresent": false,
+                "otherIrrelevantInformation": 1
+            }
+        },
+        {
+            "fieldOne": {
+                "irrelevantInformation": 0,
+                "isPresent": true,
+                "otherIrrelevantInformation": 1
+            },
+            "fieldTwo": {
+                "irrelevantInformation": 0,
+                "isPresent": true,
+                "otherIrrelevantInformation": 1
+            }
+        }
+    ]
+}

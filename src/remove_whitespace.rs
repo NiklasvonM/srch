@@ -15,14 +15,8 @@
 /// let result = remove_whitespace(text_with_tabs_and_newlines);
 /// assert_eq!(result, "HelloWorld!");
 /// ```
-pub fn remove_whitespace(text: &str) -> String {
-    let mut result = String::new();
-    for char in text.chars() {
-        if !char.is_whitespace() {
-            result.push(char);
-        }
-    }
-    result
+pub fn remove_whitespace(s: &str) -> String {
+    s.chars().filter(|c| !c.is_whitespace()).collect()
 }
 
 #[cfg(test)]
