@@ -17,6 +17,9 @@ jobs:
     strategy:
       matrix:
         include:
+          - build: windows
+            os: windows-latest
+            target: x86_64-pc-windows-gnu
           - build: linux
             os: ubuntu-latest
             target: x86_64-unknown-linux-musl
@@ -50,8 +53,7 @@ jobs:
       - name: Build archive
         shell: bash
         run: |
-          # Replace with the name of your binary
-          binary_name="<BINARY_NAME>"
+          binary_name="srch"
 
           dirname="$binary_name-${{ env.VERSION }}-${{ matrix.target }}"
           mkdir "$dirname"
