@@ -18,7 +18,7 @@ jobs:
       matrix:
         include:
           - build: windows
-            os: windows-latest
+            os: ubuntu-latest
             target: x86_64-pc-windows-gnu
           - build: linux
             os: ubuntu-latest
