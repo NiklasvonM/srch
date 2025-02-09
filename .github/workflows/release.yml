@@ -3,68 +3,74 @@ name: Release
 on:
   push:
     tags:
-      - 'v*.*.*'  # Trigger on tags like v0.1.0, v1.2.3, etc.
+      # Regex for a version number such as v0.2.1
+      - "v[0-9]+.[0-9]+.[0-9]+"
+
+permissions:
+  contents: write
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+  build-and-upload:
+    name: Build and upload
+    runs-on: ${{ matrix.os }}
+
     strategy:
       matrix:
-        target:
-          - x86_64-unknown-linux-gnu
-          - x86_64-apple-darwin
-          - x86_64-pc-windows-gnu
-          - aarch64-unknown-linux-gnu  # ARM64 Linux
-          - aarch64-apple-darwin      # ARM64 macOS
+        include:
+          - build: linux
+            os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+
+          - build: macos
+            os: macos-latest
+            target: x86_64-apple-darwin
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v3
 
-      - name: Install Rust Toolchain
-        uses: actions-rs/toolchain@v1
+      - name: Get the release version from the tag
+        shell: bash
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        # Arguments to pass in
         with:
-          toolchain: stable
-          target: ${{ matrix.target }}
+          # Make Rust compile to our target (defined in the matrix)
+          targets: ${{ matrix.target }}
 
-      - name: Install cross (for cross-compilation)
-        run: cargo install cross --locked
+      - name: Build
+        uses: actions-rs/cargo@v1
+        with:
+          use-cross: true
+          command: build
+          args: --verbose --release --target ${{ matrix.target }}
 
-      - name: Build release binary
-        run: cross build --release --target ${{ matrix.target }}
-        env:
-          MACOSX_DEPLOYMENT_TARGET: 10.13
-        timeout-minutes: 10
-
-      - name: Create release archive
+      - name: Build archive
+        shell: bash
         run: |
-          mkdir release
-          cp target/${{ matrix.target }}/release/srch release/srch
-          cd release
-          if [[ "${{ matrix.target }}" == *"windows"* ]]; then
-            zip srch-${{ matrix.target }}.zip srch
+          # Replace with the name of your binary
+          binary_name="<BINARY_NAME>"
+
+          dirname="$binary_name-${{ env.VERSION }}-${{ matrix.target }}"
+          mkdir "$dirname"
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            mv "target/${{ matrix.target }}/release/$binary_name.exe" "$dirname"
           else
-            tar -czvf srch-${{ matrix.target }}.tar.gz srch
+            mv "target/${{ matrix.target }}/release/$binary_name" "$dirname"
           fi
 
-      - name: Create GitHub Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ github.ref_name }}
-          release_name: Release ${{ github.ref_name }}
-          body: |
-            Release binaries for ${{ github.ref_name }}
-          draft: false
-          prerelease: false
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            7z a "$dirname.zip" "$dirname"
+            echo "ASSET=$dirname.zip" >> $GITHUB_ENV
+          else
+            tar -czf "$dirname.tar.gz" "$dirname"
+            echo "ASSET=$dirname.tar.gz" >> $GITHUB_ENV
+          fi
 
-      - name: Upload release archive
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Release
+        uses: softprops/action-gh-release@v1
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_name: srch-${{ matrix.target }}.${{ contains(matrix.target, 'windows') && 'zip' || 'tar.gz' }}
-          asset_path: release/srch-${{ matrix.target }}.${{ contains(matrix.target, 'windows') && 'zip' || 'tar.gz' }}
+          files: |
+            ${{ env.ASSET }}
