@@ -32,6 +32,9 @@ jobs:
 
       - name: Build release binary
         run: cross build --release --target ${{ matrix.target }}
+        env:
+          MACOSX_DEPLOYMENT_TARGET: 10.13
+        timeout-minutes: 10
 
       - name: Create release archive
         run: |
@@ -62,6 +65,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}  # Get upload_url from create_release step
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_name: srch-${{ matrix.target }}.${{ contains(matrix.target, 'windows') && 'zip' || 'tar.gz' }}
           asset_path: release/srch-${{ matrix.target }}.${{ contains(matrix.target, 'windows') && 'zip' || 'tar.gz' }}
