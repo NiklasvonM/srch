@@ -39,6 +39,13 @@ struct Cli {
 
     #[clap(value_name = "JSON_FILES", num_args = 0.., help = "Paths to JSON files to search within. If provided, srch will search these files instead of stdin or --json-string.")]
     json_files: Vec<String>,
+
+    #[clap(
+        short = 's',
+        long = "single",
+        help = "Return only the first match per file."
+    )]
+    single: bool,
 }
 
 // Parse search term syntax
@@ -81,23 +88,57 @@ fn search_json_value(
     field_name: &str,
     expected_value: &str,
     current_path: Vec<String>,
+    single: bool,
 ) -> Vec<String> {
-    match json_value {
-        Value::Object(obj) => search_object(
-            obj,
-            field_path_parts,
-            field_name,
-            expected_value,
-            current_path,
-        ),
-        Value::Array(arr) => search_array(
-            arr,
-            field_path_parts,
-            field_name,
-            expected_value,
-            current_path,
-        ),
-        _ => Vec::new(), // For other types like String, Number, Bool, return empty results
+    if single {
+        // Early return if single mode and already found a match (by checking results later)
+        let mut temp_results: Vec<String> = Vec::new(); // Create a temp results to check for emptiness later
+        match json_value {
+            Value::Object(obj) => temp_results.extend(search_object(
+                obj,
+                field_path_parts,
+                field_name,
+                expected_value,
+                current_path,
+                single,
+            )),
+            Value::Array(arr) => temp_results.extend(search_array(
+                arr,
+                field_path_parts,
+                field_name,
+                expected_value,
+                current_path,
+                single,
+            )),
+            _ => {} // For other types like String, Number, Bool, do nothing
+        }
+        if !temp_results.is_empty() && single {
+            // Check temp_results after the recursive call.
+            return temp_results; // If temp_results is not empty, return it immediately.
+        } else {
+            return Vec::new(); // Otherwise return empty results to continue search (or effectively stop if no match found deeper).
+        }
+    } else {
+        // Not single mode, process as before
+        match json_value {
+            Value::Object(obj) => search_object(
+                obj,
+                field_path_parts,
+                field_name,
+                expected_value,
+                current_path,
+                single,
+            ),
+            Value::Array(arr) => search_array(
+                arr,
+                field_path_parts,
+                field_name,
+                expected_value,
+                current_path,
+                single,
+            ),
+            _ => Vec::new(), // For other types like String, Number, Bool, return empty results
+        }
     }
 }
 
@@ -107,29 +148,41 @@ fn search_object(
     field_name: &str,
     expected_value: &str,
     current_path: Vec<String>,
+    single: bool,
 ) -> Vec<String> {
     let mut results = Vec::new();
     let mut next_path = current_path.clone();
 
     for (key, value) in obj {
         next_path.push(key.clone());
-        results.extend(search_json_value(
+        let recursive_results = search_json_value(
             value,
             field_path_parts,
             field_name,
             expected_value,
             next_path.clone(),
-        ));
+            single,
+        );
+        if single && !recursive_results.is_empty() {
+            // Early return if single and found result in recursion
+            return recursive_results; // Return the result immediately from recursion
+        }
+        results.extend(recursive_results); // Otherwise extend all results.
         next_path.pop(); // Backtrack for next key
     }
 
-    results.extend(check_object_match(
+    let check_results = check_object_match(
         obj,
         field_path_parts,
         field_name,
         expected_value,
         &current_path,
-    ));
+    );
+    if single && !check_results.is_empty() {
+        // Early return if single and found result in check
+        return check_results; // Return result immediately from check
+    }
+    results.extend(check_results); // Otherwise extend all results.
 
     results
 }
@@ -180,18 +233,25 @@ fn search_array(
     field_name: &str,
     expected_value: &str,
     current_path: Vec<String>,
+    single: bool,
 ) -> Vec<String> {
     let mut results = Vec::new();
     for (index, item) in arr.iter().enumerate() {
         let mut next_path = current_path.clone();
         next_path.push(index.to_string()); // Add array index to path
-        results.extend(search_json_value(
+        let recursive_results = search_json_value(
             item,
             field_path_parts,
             field_name,
             expected_value,
             next_path,
-        ));
+            single,
+        );
+        if single && !recursive_results.is_empty() {
+            // Early return if single and found result in recursion
+            return recursive_results; // Return result immediately from recursion
+        }
+        results.extend(recursive_results); // Otherwise extend all results.
     }
     results
 }
@@ -211,15 +271,19 @@ fn process_json_input(
     field_path_parts: &[&str],
     field_name: &str,
     expected_value: &str,
+    single: bool,
 ) -> Vec<String> {
     match serde_json::from_str(&json_input_raw) {
-        Ok(json_value) => search_json_value(
-            &json_value,
-            field_path_parts,
-            field_name,
-            expected_value,
-            Vec::new(), // Initial path is empty
-        ),
+        Ok(json_value) => {
+            search_json_value(
+                &json_value,
+                field_path_parts,
+                field_name,
+                expected_value,
+                Vec::new(), // Initial path is empty
+                single,
+            )
+        }
         Err(e) => {
             eprintln!("Error parsing JSON input: {}", e);
             Vec::new() // Return empty results on parsing error, avoid program exit in processing files
@@ -232,11 +296,17 @@ fn process_file(
     field_path_parts: &[&str],
     field_name: &str,
     expected_value: &str,
+    single: bool,
 ) -> Vec<String> {
     match fs::read_to_string(file_path) {
         Ok(file_content) => {
-            let results =
-                process_json_input(file_content, field_path_parts, field_name, expected_value);
+            let results = process_json_input(
+                file_content,
+                field_path_parts,
+                field_name,
+                expected_value,
+                single,
+            );
             results
         }
         Err(e) => {
@@ -251,11 +321,21 @@ fn handle_file_input(
     field_path_parts: &[&str],
     field_name: &str,
     expected_value: &str,
+    single: bool,
 ) {
     for file_path in json_files {
-        let search_results = process_file(file_path, field_path_parts, field_name, expected_value);
+        let search_results = process_file(
+            file_path,
+            field_path_parts,
+            field_name,
+            expected_value,
+            single,
+        );
         for result_path in search_results {
             println!("{}", result_path);
+            if single {
+                break; // Exit inner loop after first result in single mode
+            }
         }
     }
 }
@@ -265,6 +345,7 @@ fn handle_string_or_stdin_input(
     field_path_parts: &[&str],
     field_name: &str,
     expected_value: &str,
+    single: bool,
 ) {
     let json_input_raw = match json_string {
         Some(json_str) => json_str.clone(),
@@ -277,8 +358,13 @@ fn handle_string_or_stdin_input(
         },
     };
 
-    let search_results =
-        process_json_input(json_input_raw, field_path_parts, field_name, expected_value);
+    let search_results = process_json_input(
+        json_input_raw,
+        field_path_parts,
+        field_name,
+        expected_value,
+        single,
+    );
     for result_path in search_results {
         println!("{}", result_path);
     }
@@ -289,17 +375,25 @@ fn main() {
     let search_term_raw = args.search_term;
     let json_files = args.json_files;
     let json_string = args.json_string;
+    let single = args.single;
 
     match parse_search_term(&search_term_raw) {
         Ok((field_path_parts, field_name, expected_value)) => {
             if !json_files.is_empty() {
-                handle_file_input(&json_files, &field_path_parts, field_name, &expected_value);
+                handle_file_input(
+                    &json_files,
+                    &field_path_parts,
+                    field_name,
+                    &expected_value,
+                    single,
+                );
             } else {
                 handle_string_or_stdin_input(
                     &json_string,
                     &field_path_parts,
                     field_name,
                     &expected_value,
+                    single,
                 );
             }
         }
