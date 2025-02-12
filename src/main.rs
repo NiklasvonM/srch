@@ -46,6 +46,13 @@ struct Cli {
         help = "Return only the first match per file."
     )]
     single: bool,
+
+    #[clap(
+        short = 'p',
+        long = "path",
+        help = "Output the file path instead of the result path (only for file input)."
+    )]
+    path_output: bool,
 }
 
 // Parse search term syntax
@@ -322,6 +329,7 @@ fn handle_file_input(
     field_name: &str,
     expected_value: &str,
     single: bool,
+    path_output: bool,
 ) {
     for file_path in json_files {
         let search_results = process_file(
@@ -332,7 +340,11 @@ fn handle_file_input(
             single,
         );
         for result_path in search_results {
-            println!("{}", result_path);
+            if path_output {
+                println!("{}", file_path);
+            } else {
+                println!("{}", result_path);
+            }
             if single {
                 break; // Exit inner loop after first result in single mode
             }
@@ -376,6 +388,7 @@ fn main() {
     let json_files = args.json_files;
     let json_string = args.json_string;
     let single = args.single;
+    let path_output = args.path_output;
 
     match parse_search_term(&search_term_raw) {
         Ok((field_path_parts, field_name, expected_value)) => {
@@ -386,6 +399,7 @@ fn main() {
                     field_name,
                     &expected_value,
                     single,
+                    path_output,
                 );
             } else {
                 handle_string_or_stdin_input(

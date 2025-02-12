@@ -1,6 +1,6 @@
 # srch
 
-Search JSONs for data based on the path.
+Search JSONs for values based on the path.
 
 ## Example Usage
 
@@ -32,7 +32,20 @@ examples_files/test.json:
 ```
 Output: `someList.1.fieldOne.isPresent`
 
-Piping `cat` into `srch`:
-`cat example_files/test.json | srch "fieldOne.isPresent: true"`
+| Command                                                     | Output                                                         |
+| ----------------------------------------------------------- | -------------------------------------------------------------- |
+| srch "fieldOne.isPresent: true" example_files/*.json        | someList.1.fieldOne.isPresent                                  |
+| srch '1.fieldOne.isPresent: true' example_files/test.json`  | someList.1.fieldOne.isPresent                                  |
+| srch '0.fieldOne.isPresent: true' example_files/test.json`  |                                                                |
+| srch "isPresent: true" example_files/*.json                 | someList.1.fieldOne.isPresent<br>someList.1.fieldTwo.isPresent |
+| srch "isPresent: true" example_files/*.json -s              | someList.1.fieldOne.isPresent                                  |
+| srch "isPresent: true" example_files/*.json -p              | example_files/test.json<br>example_files/test.json             |
+| srch "isPresent: true" example_files/*.json -p              | example_files/test.json<br>example_files/test.json             |
+| srch "isPresent: true" example_files/*.json -s -p           | example_files/test.json                                        |
+| cat example_files/test.json \| srch "isPresent: true"       | someList.1.fieldOne.isPresent<br>someList.1.fieldTwo.isPresent |
+| cat example_files/test.json \| srch "isPresent: true" \| wc | 2       2      60                                              |
 
-Piping into `wc`: `srch "fieldOne.isPresent: true" example_files/*.json | wc`
+## Search Term Syntax
+
+The search path and value that is sought are separated by a colon ":".
+The field names in the field path is separated by dots ".". Integers are interpreted as list indices, starting at 0.
