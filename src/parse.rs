@@ -1,50 +1,29 @@
+use regex::Regex;
 use serde_json::Value;
 
-fn parse_expected_values<'a>(s: &'a str, value_separator: &'a str) -> Vec<&'a str> {
-    let expected_values: Vec<&str> = s
-        .trim()
-        .split(value_separator)
-        .filter(|x| !x.is_empty())
-        .collect();
-    expected_values
-}
-
-// Parse search term syntax
-pub fn parse_search_term<'a>(
-    search_term: &'a str,
+pub fn parse_search_path<'a>(
+    search_path: &'a str,
     field_path_separator: &'a str,
-    value_separator: &'a str,
-) -> Result<(Vec<&'a str>, &'a str, Vec<&'a str>), String> {
-    if let Some((path_part, condition_part)) = search_term.split_once(':') {
-        if let Some((field_path_str, field_name)) = path_part.rsplit_once(field_path_separator) {
-            let expected_values = parse_expected_values(condition_part, value_separator);
-            if !field_name.is_empty() && !expected_values.is_empty() {
-                let field_path_parts: Vec<&str> =
-                    field_path_str.split(field_path_separator).collect();
-                return Ok((field_path_parts, field_name, expected_values));
-            } else {
-                return Err(
-                    "Invalid search term format. Field name or expected value is empty."
-                        .to_string(),
-                );
-            }
+) -> Result<(Vec<&'a str>, &'a str), String> {
+    if let Some((field_path_str, field_name)) = search_path.rsplit_once(field_path_separator) {
+        if !field_name.is_empty() {
+            let field_path_parts: Vec<&str> = field_path_str.split(field_path_separator).collect();
+            return Ok((field_path_parts, field_name));
         } else {
-            // Handle case where there's no dot in path, e.g., "field:value" - fieldPath is empty
-            let field_name = path_part;
-            let expected_values: Vec<&str> = parse_expected_values(condition_part, value_separator);
-            if !field_name.is_empty() && !expected_values.is_empty() {
-                return Ok((vec![], field_name, expected_values)); // Empty field_path_parts when no path
-            } else {
-                return Err(
-                    "Invalid search term format. Field name or expected value is empty."
-                        .to_string(),
-                );
-            }
+            return Err(
+                "Invalid search term format. Field name or expected value is empty.".to_string(),
+            );
         }
     } else {
-        return Err(
-            "Invalid search term format. Missing colon separator for value condition.".to_string(),
-        );
+        // Handle case where there's no dot in path, e.g., "field:value" - fieldPath is empty
+        let field_name = search_path;
+        if !field_name.is_empty() {
+            return Ok((vec![], field_name)); // Empty field_path_parts when no path
+        } else {
+            return Err(
+                "Invalid search term format. Field name or expected value is empty.".to_string(),
+            );
+        }
     }
 }
 
@@ -52,7 +31,7 @@ fn search_json_value(
     json_value: &Value,
     field_path_parts: &[&str],
     field_name: &str,
-    expected_values: &[&str],
+    search_regex: &Regex,
     current_path: Vec<String>,
     single: bool,
     hide_value: bool,
@@ -65,7 +44,7 @@ fn search_json_value(
                 obj,
                 field_path_parts,
                 field_name,
-                expected_values,
+                search_regex,
                 current_path,
                 single,
                 hide_value,
@@ -74,7 +53,7 @@ fn search_json_value(
                 arr,
                 field_path_parts,
                 field_name,
-                expected_values,
+                search_regex,
                 current_path,
                 single,
                 hide_value,
@@ -94,7 +73,7 @@ fn search_json_value(
                 obj,
                 field_path_parts,
                 field_name,
-                expected_values,
+                search_regex,
                 current_path,
                 single,
                 hide_value,
@@ -103,7 +82,7 @@ fn search_json_value(
                 arr,
                 field_path_parts,
                 field_name,
-                expected_values,
+                search_regex,
                 current_path,
                 single,
                 hide_value,
@@ -117,7 +96,7 @@ fn search_object(
     obj: &serde_json::Map<String, Value>,
     field_path_parts: &[&str],
     field_name: &str,
-    expected_values: &[&str],
+    search_regex: &Regex,
     current_path: Vec<String>,
     single: bool,
     hide_value: bool,
@@ -131,7 +110,7 @@ fn search_object(
             value,
             field_path_parts,
             field_name,
-            expected_values,
+            search_regex,
             next_path.clone(),
             single,
             hide_value,
@@ -148,7 +127,7 @@ fn search_object(
         obj,
         field_path_parts,
         field_name,
-        expected_values,
+        search_regex,
         &current_path,
         hide_value,
     );
@@ -165,7 +144,7 @@ fn check_object_match(
     obj: &serde_json::Map<String, Value>,
     field_path_parts: &[&str],
     field_name: &str,
-    expected_values: &[&str],
+    search_regex: &Regex,
     current_path: &Vec<String>,
     hide_value: bool,
 ) -> Vec<String> {
@@ -184,7 +163,7 @@ fn check_object_match(
         // Check if all parts of field_path_parts have been matched in the current_path
         if field_path_index == field_path_parts.len() {
             if let Some(value) = obj.get(field_name) {
-                if expected_values.contains(&value_to_string(value).trim_matches('"')) {
+                if search_regex.is_match(&value_to_string(value).trim_matches('"')) {
                     let mut full_path = current_path.join(".") + "." + field_name;
                     if !hide_value {
                         // Concat the value found
@@ -198,8 +177,8 @@ fn check_object_match(
     } else {
         // field_path_parts is empty, search anywhere logic
         if let Some(value) = obj.get(field_name) {
-            if expected_values.contains(&value_to_string(value).trim_matches('"')) {
-                let mut full_path = current_path.join(".") + "." + field_name;                    
+            if search_regex.is_match(&value_to_string(value).trim_matches('"')) {
+                let mut full_path = current_path.join(".") + "." + field_name;
                 if !hide_value {
                     // Concat the value found
                     full_path.push_str(": ");
@@ -216,7 +195,7 @@ fn search_array(
     arr: &Vec<Value>,
     field_path_parts: &[&str],
     field_name: &str,
-    expected_values: &[&str],
+    search_regex: &Regex,
     current_path: Vec<String>,
     single: bool,
     hide_value: bool,
@@ -229,7 +208,7 @@ fn search_array(
             item,
             field_path_parts,
             field_name,
-            expected_values,
+            search_regex,
             next_path,
             single,
             hide_value,
@@ -257,7 +236,7 @@ pub fn process_json_input(
     json_input_raw: String,
     field_path_parts: &[&str],
     field_name: &str,
-    expected_values: &[&str],
+    search_regex: &Regex,
     single: bool,
     hide_value: bool,
 ) -> Vec<String> {
@@ -267,7 +246,7 @@ pub fn process_json_input(
                 &json_value,
                 field_path_parts,
                 field_name,
-                expected_values,
+                search_regex,
                 Vec::new(), // Initial path is empty
                 single,
                 hide_value,

@@ -38,23 +38,23 @@ examples_files/test.json:
 }
 ```
 
-| Command                                                     | Output                                                                     |
-| ----------------------------------------------------------- | -------------------------------------------------------------------------- |
-| srch "index: 1\|2" example_files/*.json                     | someList.0.fieldTwo.index: 1<br>someList.1.fieldOne.index: 2               |
-| srch "fieldOne.isPresent: true" example_files/*.json        | someList.1.fieldOne.isPresent: true                                        |
-| srch "1.fieldOne.isPresent: true" example_files/test.json   | someList.1.fieldOne.isPresent: true                                        |
-| srch "0.fieldOne.isPresent: true" example_files/test.json   |                                                                            |
-| srch "isPresent: true" example_files/*.json                 | someList.1.fieldOne.isPresent: true<br>someList.1.fieldTwo.isPresent: true |
-| srch "isPresent: true" example_files/*.json -s              | someList.1.fieldOne.isPresent: true                                        |
-| srch "isPresent: true" example_files/*.json -p              | example_files/test.json<br>example_files/test.json                         |
-| srch "isPresent: true" example_files/*.json -s -p           | example_files/test.json                                                    |
-| cat example_files/test.json \| srch "isPresent: true"       | someList.1.fieldOne.isPresent: true<br>someList.1.fieldTwo.isPresent: true |
-| cat example_files/test.json \| srch "isPresent: true" \| wc | 2       4      72                                                          |
+| Command                                                  | Output                                                                                       |
+| -------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| srch index "1\|2" example_files/*.json                   | someList.0.fieldTwo.index: 1<br>someList.1.fieldOne.index: 2                                 |
+| srch index "[0-2]" example_files/*.json                  | someList.0.fieldOne.index: 0<br>someList.0.fieldTwo.index: 1<br>someList.1.fieldOne.index: 2 |
+| srch index "[^1]" example_files/*.json                   | someList.0.fieldOne.index: 0<br>someList.1.fieldOne.index: 2<br>someList.1.fieldTwo.index: 3 |
+| srch fieldOne.isPresent true example_files/*.json        | someList.1.fieldOne.isPresent: true                                                          |
+| srch 1.fieldOne.isPresent true example_files/test.json   | someList.1.fieldOne.isPresent: true                                                          |
+| srch 0.fieldOne.isPresent true example_files/test.json   |                                                                                              |
+| srch isPresent true example_files/*.json                 | someList.1.fieldOne.isPresent: true<br>someList.1.fieldTwo.isPresent: true                   |
+| srch isPresent true example_files/*.json -s              | someList.1.fieldOne.isPresent: true                                                          |
+| srch isPresent true example_files/*.json -p              | example_files/test.json<br>example_files/test.json                                           |
+| srch isPresent true example_files/*.json -s -p           | example_files/test.json                                                                      |
+| cat example_files/test.json \| srch isPresent true       | someList.1.fieldOne.isPresent: true<br>someList.1.fieldTwo.isPresent: true                   |
+| cat example_files/test.json \| srch isPresent true \| wc | 2       4      72                                                                            |
 
 ## Search Term Syntax
 
-The search path and values searched are separated by a colon ":".
-
 The field names in the field path are separated by dots "." by default, can be changed via `-f` flag. Integers are interpreted as list indices, starting at 0. Only the "tail" of the field path needs to be specified.
 
-The expected values are separated by "|" by default, can be changed via `-v` flag.
+The search term is interpreted as a regular expression.

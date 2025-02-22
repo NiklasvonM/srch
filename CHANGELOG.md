@@ -9,12 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- [Allow searching for multiple values](https://github.com/NiklasvonM/srch/issues/3)
-- Add option to specify separators in search term.
+- [Replace single expected value with search regex](https://github.com/NiklasvonM/srch/issues/3)
+- Add option to specify separators in search path.
 
 ### Changed
 
 - Show values found by default (unless in file path print mode). Disable via `-d`.
+- Specify search path and search term in separate arguments.
 
 [0.0.3]: https://github.com/NiklasvonM/srch/releases/tag/0.0.3
 

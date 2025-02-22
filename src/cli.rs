@@ -16,12 +16,16 @@ pub struct Cli {
     pub json_string: Option<String>,
 
     #[clap(
-        value_name = "SEARCH_TERM",
-        help = "Search term in the format 'fieldPath.fieldName:expectedValue1|expectedValue2|...'.\n\
+        value_name = "SEARCH_PATH",
+        help = "Search path in the format 'fieldPath.fieldName'.\n\
                                          - fieldPath: Path to the field, separated by the FIELD_PATH_SEPARATOR (default .) (e.g., 'topLevel.nestedField' or just 'field').\n\
-                                         - fieldName: Name of the field to search for at the end of the path.\n\
-                                         - expectedValues: Values to compare against. The values are compared as strings and separated by VALUE_SEPARATOR (default |).\n\
-                                         Examples: 'fieldOne.isPresent:true', 'topLevel.nested.value:1|2|3'"
+                                         - fieldName: Name of the field to search for at the end of the path."
+    )]
+    pub search_path: String,
+
+    #[clap(
+        value_name = "SEARCH_TERM",
+        help = "Regex to compare values against. The values are compared as strings."
     )]
     pub search_term: String,
 
@@ -50,14 +54,6 @@ pub struct Cli {
         default_value = "."
     )]
     pub field_path_separator: String,
-
-    #[clap(
-        short = 'v',
-        long = "value-separator",
-        help = "Separator for the expected values.",
-        default_value = "|"
-    )]
-    pub value_separator: String,
 
     #[clap(
         short = 'd',
