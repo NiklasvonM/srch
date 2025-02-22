@@ -4,7 +4,7 @@ Search JSONs for values based on the path.
 
 ## Example Usage
 
-`srch "fieldOne.index: 2" example_files/*.json`
+`srch fieldOne.index 2 example_files/*.json`
 
 Output: `someList.1.fieldOne.index: 2`
 
