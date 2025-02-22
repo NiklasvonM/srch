@@ -17,15 +17,16 @@ pub struct Cli {
 
     #[clap(
         value_name = "SEARCH_TERM",
-        help = "Search term in the format 'fieldPath.fieldName:expectedValue'.\n\
-                                         - fieldPath: Path to the field, separated by dots (e.g., 'topLevel.nestedField' or just 'field').\n\
+        help = "Search term in the format 'fieldPath.fieldName:expectedValue1|expectedValue2|...'.\n\
+                                         - fieldPath: Path to the field, separated by the FIELD_PATH_SEPARATOR (default .) (e.g., 'topLevel.nestedField' or just 'field').\n\
                                          - fieldName: Name of the field to search for at the end of the path.\n\
-                                         - expectedValue: Value to compare against. The value is compared as a string.\n\
-                                         Examples: 'fieldOne.isPresent:true', 'topLevel.nested.value:123'"
+                                         - expectedValues: Values to compare against. The values are compared as strings and separated by VALUE_SEPARATOR (default |).\n\
+                                         Examples: 'fieldOne.isPresent:true', 'topLevel.nested.value:1|2|3'"
     )]
     pub search_term: String,
 
-    #[clap(value_name = "JSON_FILES", num_args = 0.., help = "Paths to JSON files to search within. If provided, srch will search these files instead of stdin or --json-string.")]
+    #[clap(value_name = "JSON_FILES", num_args = 0.., help = "Paths to JSON files to search within. If provided, srch will search these files instead of stdin or --json-string.\n\
+                                                                Example: example_files/*.json")]
     pub json_files: Vec<String>,
 
     #[clap(
@@ -41,4 +42,27 @@ pub struct Cli {
         help = "Output the file path instead of the result path (only for file input)."
     )]
     pub path_output: bool,
+
+    #[clap(
+        short = 'f',
+        long = "field-path-separator",
+        help = "Separator for the field path.",
+        default_value = "."
+    )]
+    pub field_path_separator: String,
+
+    #[clap(
+        short = 'v',
+        long = "value-separator",
+        help = "Separator for the expected values.",
+        default_value = "|"
+    )]
+    pub value_separator: String,
+
+    #[clap(
+        short = 'd',
+        long = "hide-value",
+        help = "If provided, the values found are not printed."
+    )]
+    pub hide_value: bool,
 }

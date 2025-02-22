@@ -4,24 +4,22 @@
             "fieldOne": {
                 "irrelevantInformation": 0,
                 "isPresent": false,
-                "otherIrrelevantInformation": 1
+                "index": 0
             },
             "fieldTwo": {
                 "irrelevantInformation": 0,
                 "isPresent": false,
-                "otherIrrelevantInformation": 1
+                "index": 1
             }
         },
         {
             "fieldOne": {
-                "irrelevantInformation": 0,
                 "isPresent": true,
-                "otherIrrelevantInformation": 1
+                "index": 2
             },
             "fieldTwo": {
-                "irrelevantInformation": 0,
                 "isPresent": true,
-                "otherIrrelevantInformation": 1
+                "index": 3
             }
         }
     ]

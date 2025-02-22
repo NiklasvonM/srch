@@ -20,8 +20,9 @@ fn process_file(
     file_path: &str,
     field_path_parts: &[&str],
     field_name: &str,
-    expected_value: &str,
+    expected_values: &[&str],
     single: bool,
+    hide_value: bool,
 ) -> Vec<String> {
     match fs::read_to_string(file_path) {
         Ok(file_content) => {
@@ -29,8 +30,9 @@ fn process_file(
                 file_content,
                 field_path_parts,
                 field_name,
-                expected_value,
+                expected_values,
                 single,
+                hide_value,
             );
             results
         }
@@ -45,17 +47,19 @@ fn handle_file_input(
     json_files: &Vec<String>,
     field_path_parts: &[&str],
     field_name: &str,
-    expected_value: &str,
+    expected_values: &[&str],
     single: bool,
     path_output: bool,
+    hide_value: bool,
 ) {
     for file_path in json_files {
         let search_results = process_file(
             file_path,
             field_path_parts,
             field_name,
-            expected_value,
+            expected_values,
             single,
+            hide_value,
         );
         for result_path in search_results {
             if path_output {
@@ -74,8 +78,9 @@ fn handle_string_or_stdin_input(
     json_string: &Option<String>,
     field_path_parts: &[&str],
     field_name: &str,
-    expected_value: &str,
+    expected_values: &[&str],
     single: bool,
+    hide_value: bool,
 ) {
     let json_input_raw = match json_string {
         Some(json_str) => json_str.clone(),
@@ -92,8 +97,9 @@ fn handle_string_or_stdin_input(
         json_input_raw,
         field_path_parts,
         field_name,
-        expected_value,
+        expected_values,
         single,
+        hide_value,
     );
     for result_path in search_results {
         println!("{}", result_path);
@@ -107,25 +113,30 @@ fn main() {
     let json_string = args.json_string;
     let single = args.single;
     let path_output = args.path_output;
+    let field_path_separator = args.field_path_separator;
+    let value_separator = args.value_separator;
+    let hide_value = args.hide_value;
 
-    match parse_search_term(&search_term_raw) {
-        Ok((field_path_parts, field_name, expected_value)) => {
+    match parse_search_term(&search_term_raw, &field_path_separator, &value_separator) {
+        Ok((field_path_parts, field_name, expected_values)) => {
             if !json_files.is_empty() {
                 handle_file_input(
                     &json_files,
                     &field_path_parts,
                     field_name,
-                    &expected_value,
+                    &expected_values,
                     single,
                     path_output,
+                    hide_value,
                 );
             } else {
                 handle_string_or_stdin_input(
                     &json_string,
                     &field_path_parts,
                     field_name,
-                    &expected_value,
+                    &expected_values,
                     single,
+                    hide_value,
                 );
             }
         }
