@@ -239,3 +239,196 @@ pub fn process_json_input(
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use regex::Regex;
+    use serde_json::json;
+
+    #[test]
+    fn test_search_json_value_single_match_object() {
+        let json_value = json!({
+            "a": {
+                "b": {
+                    "c": "test"
+                }
+            }
+        });
+        let field_path_parts = &["a", "b"];
+        let field_name = "c";
+        let search_regex = Regex::new("test").unwrap();
+        let results = search_json_value(
+            &json_value,
+            field_path_parts,
+            field_name,
+            &search_regex,
+            Vec::new(),
+            true,
+            false,
+            ".",
+        );
+        assert_eq!(results, vec!["a.b.c: test"]);
+    }
+
+    #[test]
+    fn test_search_json_value_single_match_array() {
+        let json_value = json!([
+            {"a": "test1"},
+            {"a": "test2"}
+        ]);
+        let field_path_parts = &[];
+        let field_name = "a";
+        let search_regex = Regex::new("test2").unwrap();
+        let results = search_json_value(
+            &json_value,
+            field_path_parts,
+            field_name,
+            &search_regex,
+            Vec::new(),
+            true,
+            false,
+            ".",
+        );
+        assert_eq!(results, vec!["1.a: test2"]);
+    }
+
+    #[test]
+    fn test_search_json_value_multiple_matches_object() {
+        let json_value = json!({
+            "a": {
+                "b": "test",
+                "c": "test"
+            }
+        });
+        let field_path_parts = &["a"];
+        let field_name = "b";
+        let search_regex = Regex::new("test").unwrap();
+        let results = search_json_value(
+            &json_value,
+            field_path_parts,
+            field_name,
+            &search_regex,
+            Vec::new(),
+            false,
+            false,
+            ".",
+        );
+        assert_eq!(results, vec!["a.b: test"]);
+    }
+
+    #[test]
+    fn test_search_json_value_multiple_matches_array() {
+        let json_value = json!([
+            {"a": "test"},
+            {"a": "test"}
+        ]);
+        let field_path_parts = &[];
+        let field_name = "a";
+        let search_regex = Regex::new("test").unwrap();
+        let results = search_json_value(
+            &json_value,
+            field_path_parts,
+            field_name,
+            &search_regex,
+            Vec::new(),
+            false,
+            false,
+            ".",
+        );
+        assert_eq!(results, vec!["0.a: test", "1.a: test"]);
+    }
+
+    #[test]
+    fn test_search_json_value_no_match() {
+        let json_value = json!({"a": "value"});
+        let field_path_parts = &[];
+        let field_name = "b";
+        let search_regex = Regex::new("test").unwrap();
+        let results = search_json_value(
+            &json_value,
+            field_path_parts,
+            field_name,
+            &search_regex,
+            Vec::new(),
+            false,
+            false,
+            ".",
+        );
+        assert_eq!(results, [] as [&str; 0]);
+    }
+
+    #[test]
+    fn test_search_json_value_hide_value() {
+        let json_value = json!({"a": "test"});
+        let field_path_parts = &[];
+        let field_name = "a";
+        let search_regex = Regex::new("test").unwrap();
+        let results = search_json_value(
+            &json_value,
+            field_path_parts,
+            field_name,
+            &search_regex,
+            Vec::new(),
+            false,
+            true,
+            ".",
+        );
+        assert_eq!(results, vec!["a"]);
+    }
+
+    #[test]
+    fn test_search_json_value_field_path_match() {
+        let json_value = json!({"a":{"b":{"c":"test"}}});
+        let field_path_parts = &["a", "b"];
+        let field_name = "c";
+        let search_regex = Regex::new("test").unwrap();
+        let results = search_json_value(
+            &json_value,
+            field_path_parts,
+            field_name,
+            &search_regex,
+            Vec::new(),
+            false,
+            false,
+            ".",
+        );
+        assert_eq!(results, vec!["a.b.c: test"]);
+    }
+
+    #[test]
+    fn test_process_json_input_valid() {
+        let json_input = r#"{"a": "test"}"#.to_string();
+        let field_path_parts = &[];
+        let field_name = "a";
+        let search_regex = Regex::new("test").unwrap();
+        let results = process_json_input(
+            json_input,
+            field_path_parts,
+            field_name,
+            &search_regex,
+            false,
+            false,
+            ".",
+        );
+        assert_eq!(results, vec!["a: test"]);
+    }
+
+    #[test]
+    fn test_process_json_input_invalid() {
+        let json_input = r#"{invalid json"#.to_string();
+        let field_path_parts = &[];
+        let field_name = "a";
+        let search_regex = Regex::new("test").unwrap();
+        let results = process_json_input(
+            json_input,
+            field_path_parts,
+            field_name,
+            &search_regex,
+            false,
+            false,
+            ".",
+        );
+        assert_eq!(results, [] as [&str; 0]);
+    }
+}

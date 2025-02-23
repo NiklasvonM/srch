@@ -23,3 +23,84 @@ pub fn parse_search_path<'a>(
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_search_path_valid_with_path() {
+        let search_path = "a.b.c.field";
+        let field_path_separator = ".";
+        let result = parse_search_path(search_path, field_path_separator);
+        assert_eq!(result, Ok((vec!["a", "b", "c"], "field")));
+    }
+
+    #[test]
+    fn test_parse_search_path_valid_without_path() {
+        let search_path = "field";
+        let field_path_separator = ".";
+        let result = parse_search_path(search_path, field_path_separator);
+        assert_eq!(result, Ok((vec![], "field")));
+    }
+
+    #[test]
+    fn test_parse_search_path_valid_with_different_separator() {
+        let search_path = "a/b/c/field";
+        let field_path_separator = "/";
+        let result = parse_search_path(search_path, field_path_separator);
+        assert_eq!(result, Ok((vec!["a", "b", "c"], "field")));
+    }
+
+    #[test]
+    fn test_parse_search_path_empty_field_name() {
+        let search_path = "a.b.c.";
+        let field_path_separator = ".";
+        let result = parse_search_path(search_path, field_path_separator);
+        assert_eq!(
+            result,
+            Err("Invalid search term format. Field name or expected value is empty.".to_string())
+        );
+    }
+
+    #[test]
+    fn test_parse_search_path_empty_search_path() {
+        let search_path = "";
+        let field_path_separator = ".";
+        let result = parse_search_path(search_path, field_path_separator);
+        assert_eq!(
+            result,
+            Err("Invalid search term format. Field name or expected value is empty.".to_string())
+        );
+    }
+
+    #[test]
+    fn test_parse_search_path_only_separator() {
+        let search_path = ".";
+        let field_path_separator = ".";
+        let result = parse_search_path(search_path, field_path_separator);
+        assert_eq!(
+            result,
+            Err("Invalid search term format. Field name or expected value is empty.".to_string())
+        );
+    }
+
+    #[test]
+    fn test_parse_search_path_multiple_separators_no_field_name() {
+        let search_path = "a.b.c..";
+        let field_path_separator = ".";
+        let result = parse_search_path(search_path, field_path_separator);
+        assert_eq!(
+            result,
+            Err("Invalid search term format. Field name or expected value is empty.".to_string())
+        );
+    }
+
+    #[test]
+    fn test_parse_search_path_field_name_with_separator_char() {
+        let search_path = "a.b.c.field";
+        let field_path_separator = ".";
+        let result = parse_search_path(search_path, field_path_separator);
+        assert_eq!(result, Ok((vec!["a", "b", "c"], "field")));
+    }
+}

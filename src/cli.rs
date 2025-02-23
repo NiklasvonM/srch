@@ -69,3 +69,79 @@ pub struct Cli {
     )]
     pub hide_value: bool,
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::cli::Cli;
+    use clap::Parser;
+
+    #[test]
+    fn test_default_values() {
+        let args = Cli::parse_from(&["srch", "field.name", "search"]);
+        assert_eq!(args.json_string, None);
+        assert_eq!(args.search_path, "field.name");
+        assert_eq!(args.search_term, "search");
+        assert_eq!(args.json_files, Vec::<String>::new());
+        assert_eq!(args.single, false);
+        assert_eq!(args.path_output, false);
+        assert_eq!(args.field_path_separator, ".");
+        assert_eq!(args.hide_value, false);
+    }
+
+    #[test]
+    fn test_short_arguments() {
+        let args = Cli::parse_from(&[
+            "srch",
+            "-j",
+            "{\"key\": \"value\"}",
+            "field.name",
+            "search",
+            "-s",
+            "-p",
+            "-f",
+            "_",
+            "-d",
+        ]);
+        assert_eq!(args.json_string, Some("{\"key\": \"value\"}".to_string()));
+        assert_eq!(args.search_path, "field.name");
+        assert_eq!(args.search_term, "search");
+        assert_eq!(args.json_files, Vec::<String>::new());
+        assert_eq!(args.single, true);
+        assert_eq!(args.path_output, true);
+        assert_eq!(args.field_path_separator, "_");
+        assert_eq!(args.hide_value, true);
+    }
+
+    #[test]
+    fn test_long_arguments() {
+        let args = Cli::parse_from(&[
+            "srch",
+            "--json-string",
+            "{\"key\": \"value\"}",
+            "field.name",
+            "search",
+            "--single",
+            "--path",
+            "--field-path-separator",
+            "_",
+            "--hide-value",
+        ]);
+        assert_eq!(args.json_string, Some("{\"key\": \"value\"}".to_string()));
+        assert_eq!(args.search_path, "field.name");
+        assert_eq!(args.search_term, "search");
+        assert_eq!(args.json_files, Vec::<String>::new());
+        assert_eq!(args.single, true);
+        assert_eq!(args.path_output, true);
+        assert_eq!(args.field_path_separator, "_");
+        assert_eq!(args.hide_value, true);
+    }
+
+    #[test]
+    fn test_json_files_argument() {
+        let args = Cli::parse_from(&["srch", "field.name", "search", "file1.json", "file2.json"]);
+        assert_eq!(
+            args.json_files,
+            vec!["file1.json".to_string(), "file2.json".to_string()]
+        );
+    }
+}
