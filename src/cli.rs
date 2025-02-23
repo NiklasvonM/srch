@@ -4,7 +4,14 @@ use clap::Parser;
 #[clap(
     name = "srch",
     about = "A CLI tool to search for values in JSON from stdin, string, or files.\n\
-            Example usage: `srch \"fieldPath.fieldName: true\" example_files/*.json | wc`"
+            Examples:
+                srch fieldOne.index 2 example_files/*.json\t# Search for index 2 under fieldOne
+                srch index \"[0-2]\" example_files/*.json\t\t# Regex range search on 'index' field
+                srch isPresent true example_files/*.json -s\t# First match for 'isPresent: true'
+                srch key value -j '{\"key\": \"value\"}'\t\t# Search string input
+                cat data.json | srch name \"Max\"\t\t\t# Search stdin input
+                srch key_nested_value \"test\" data.json -f \"_\"\t# Custom separator
+                srch index \"[0-9]\" data.json --hide-values\t# Show paths only"
 )]
 pub struct Cli {
     #[clap(
