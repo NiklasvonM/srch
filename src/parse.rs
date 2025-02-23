@@ -1,32 +1,6 @@
 use regex::Regex;
 use serde_json::Value;
 
-pub fn parse_search_path<'a>(
-    search_path: &'a str,
-    field_path_separator: &'a str,
-) -> Result<(Vec<&'a str>, &'a str), String> {
-    if let Some((field_path_str, field_name)) = search_path.rsplit_once(field_path_separator) {
-        if !field_name.is_empty() {
-            let field_path_parts: Vec<&str> = field_path_str.split(field_path_separator).collect();
-            return Ok((field_path_parts, field_name));
-        } else {
-            return Err(
-                "Invalid search term format. Field name or expected value is empty.".to_string(),
-            );
-        }
-    } else {
-        // Handle case where there's no dot in path, e.g., "field:value" - fieldPath is empty
-        let field_name = search_path;
-        if !field_name.is_empty() {
-            return Ok((vec![], field_name)); // Empty field_path_parts when no path
-        } else {
-            return Err(
-                "Invalid search term format. Field name or expected value is empty.".to_string(),
-            );
-        }
-    }
-}
-
 fn search_json_value(
     json_value: &Value,
     field_path_parts: &[&str],
@@ -149,38 +123,26 @@ fn check_object_match(
     hide_value: bool,
 ) -> Vec<String> {
     let mut results = Vec::new();
-    if !field_path_parts.is_empty() {
+    let path_matches = if !field_path_parts.is_empty() {
         let mut current_path_index = 0;
         let mut field_path_index = 0;
 
         while current_path_index < current_path.len() && field_path_index < field_path_parts.len() {
             if current_path[current_path_index] == field_path_parts[field_path_index] {
-                field_path_index += 1; // Move to next field path part if match is found
+                field_path_index += 1;
             }
-            current_path_index += 1; // Always move to next current path part
+            current_path_index += 1;
         }
-
-        // Check if all parts of field_path_parts have been matched in the current_path
-        if field_path_index == field_path_parts.len() {
-            if let Some(value) = obj.get(field_name) {
-                if search_regex.is_match(&value_to_string(value).trim_matches('"')) {
-                    let mut full_path = current_path.join(".") + "." + field_name;
-                    if !hide_value {
-                        // Concat the value found
-                        full_path.push_str(": ");
-                        full_path.push_str(&value_to_string(value).trim_matches('"'));
-                    }
-                    results.push(full_path);
-                }
-            }
-        }
+        field_path_index == field_path_parts.len()
     } else {
-        // field_path_parts is empty, search anywhere logic
+        true // field_path_parts is empty, so path always matches
+    };
+
+    if path_matches {
         if let Some(value) = obj.get(field_name) {
             if search_regex.is_match(&value_to_string(value).trim_matches('"')) {
                 let mut full_path = current_path.join(".") + "." + field_name;
                 if !hide_value {
-                    // Concat the value found
                     full_path.push_str(": ");
                     full_path.push_str(&value_to_string(value).trim_matches('"'));
                 }
