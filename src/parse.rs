@@ -150,8 +150,13 @@ fn check_object_match(
     if path_matches {
         if let Some(value) = obj.get(field_name) {
             if search_regex.is_match(&value_to_string(value).trim_matches('"')) {
-                let mut full_path =
-                    current_path.join(field_path_separator) + field_path_separator + field_name;
+                let mut full_path = current_path.join(field_path_separator)
+                    + (if current_path.is_empty() {
+                        ""
+                    } else {
+                        field_path_separator
+                    })
+                    + field_name;
                 if !hide_value {
                     full_path.push_str(": ");
                     full_path.push_str(&value_to_string(value).trim_matches('"'));
