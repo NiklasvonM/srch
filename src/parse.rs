@@ -9,6 +9,7 @@ fn search_json_value(
     current_path: Vec<String>,
     single: bool,
     hide_value: bool,
+    field_path_separator: &str,
 ) -> Vec<String> {
     if single {
         // Early return if single mode and already found a match (by checking results later)
@@ -22,6 +23,7 @@ fn search_json_value(
                 current_path,
                 single,
                 hide_value,
+                field_path_separator,
             )),
             Value::Array(arr) => temp_results.extend(search_array(
                 arr,
@@ -31,6 +33,7 @@ fn search_json_value(
                 current_path,
                 single,
                 hide_value,
+                field_path_separator,
             )),
             _ => {} // For other types like String, Number, Bool, do nothing
         }
@@ -51,6 +54,7 @@ fn search_json_value(
                 current_path,
                 single,
                 hide_value,
+                field_path_separator,
             ),
             Value::Array(arr) => search_array(
                 arr,
@@ -60,6 +64,7 @@ fn search_json_value(
                 current_path,
                 single,
                 hide_value,
+                field_path_separator,
             ),
             _ => Vec::new(), // For other types like String, Number, Bool, return empty results
         }
@@ -74,6 +79,7 @@ fn search_object(
     current_path: Vec<String>,
     single: bool,
     hide_value: bool,
+    field_path_separator: &str,
 ) -> Vec<String> {
     let mut results = Vec::new();
     let mut next_path = current_path.clone();
@@ -88,6 +94,7 @@ fn search_object(
             next_path.clone(),
             single,
             hide_value,
+            field_path_separator,
         );
         if single && !recursive_results.is_empty() {
             // Early return if single and found result in recursion
@@ -104,6 +111,7 @@ fn search_object(
         search_regex,
         &current_path,
         hide_value,
+        field_path_separator,
     );
     if single && !check_results.is_empty() {
         // Early return if single and found result in check
@@ -121,6 +129,7 @@ fn check_object_match(
     search_regex: &Regex,
     current_path: &Vec<String>,
     hide_value: bool,
+    field_path_separator: &str,
 ) -> Vec<String> {
     let mut results = Vec::new();
     let path_matches = if !field_path_parts.is_empty() {
@@ -141,7 +150,8 @@ fn check_object_match(
     if path_matches {
         if let Some(value) = obj.get(field_name) {
             if search_regex.is_match(&value_to_string(value).trim_matches('"')) {
-                let mut full_path = current_path.join(".") + "." + field_name;
+                let mut full_path =
+                    current_path.join(field_path_separator) + field_path_separator + field_name;
                 if !hide_value {
                     full_path.push_str(": ");
                     full_path.push_str(&value_to_string(value).trim_matches('"'));
@@ -161,6 +171,7 @@ fn search_array(
     current_path: Vec<String>,
     single: bool,
     hide_value: bool,
+    field_path_separator: &str,
 ) -> Vec<String> {
     let mut results = Vec::new();
     for (index, item) in arr.iter().enumerate() {
@@ -174,6 +185,7 @@ fn search_array(
             next_path,
             single,
             hide_value,
+            field_path_separator,
         );
         if single && !recursive_results.is_empty() {
             // Early return if single and found result in recursion
@@ -201,6 +213,7 @@ pub fn process_json_input(
     search_regex: &Regex,
     single: bool,
     hide_value: bool,
+    field_path_separator: &str,
 ) -> Vec<String> {
     match serde_json::from_str(&json_input_raw) {
         Ok(json_value) => {
@@ -212,6 +225,7 @@ pub fn process_json_input(
                 Vec::new(), // Initial path is empty
                 single,
                 hide_value,
+                field_path_separator,
             )
         }
         Err(e) => {

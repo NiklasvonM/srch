@@ -33,6 +33,7 @@ fn main() {
                         single,
                         path_output,
                         hide_value,
+                        &field_path_separator
                     );
                 } else {
                     handle_string_or_stdin_input(
@@ -42,6 +43,7 @@ fn main() {
                         &search_regex,
                         single,
                         hide_value,
+                        &field_path_separator
                     );
                 }
             }

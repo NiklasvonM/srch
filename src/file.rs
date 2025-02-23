@@ -20,6 +20,7 @@ fn process_file(
     search_regex: &Regex,
     single: bool,
     hide_value: bool,
+    field_path_separator: &str,
 ) -> Vec<String> {
     match fs::read_to_string(file_path) {
         Ok(file_content) => {
@@ -30,6 +31,7 @@ fn process_file(
                 search_regex,
                 single,
                 hide_value,
+                field_path_separator,
             );
             results
         }
@@ -48,6 +50,7 @@ pub fn handle_file_input(
     single: bool,
     path_output: bool,
     hide_value: bool,
+    field_path_separator: &str,
 ) {
     for file_path in json_files {
         let search_results = process_file(
@@ -57,6 +60,7 @@ pub fn handle_file_input(
             search_regex,
             single,
             hide_value,
+            field_path_separator,
         );
         for result_path in search_results {
             if path_output {
@@ -78,6 +82,7 @@ pub fn handle_string_or_stdin_input(
     search_regex: &Regex,
     single: bool,
     hide_value: bool,
+    field_path_separator: &str,
 ) {
     let json_input_raw = match json_string {
         Some(json_str) => json_str.clone(),
@@ -97,6 +102,7 @@ pub fn handle_string_or_stdin_input(
         search_regex,
         single,
         hide_value,
+        field_path_separator,
     );
     for result_path in search_results {
         println!("{}", result_path);

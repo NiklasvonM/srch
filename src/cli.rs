@@ -50,7 +50,7 @@ pub struct Cli {
     #[clap(
         short = 'f',
         long = "field-path-separator",
-        help = "Separator for the field path.",
+        help = "Separator for the field path. Applies both to the input path as well as the output paths.",
         default_value = "."
     )]
     pub field_path_separator: String,
