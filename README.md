@@ -58,3 +58,15 @@ examples_files/test.json:
 The field names in the field path are separated by dots "." by default, can be changed via `-f` flag. Integers are interpreted as list indices, starting at 0. Only the "tail" of the field path needs to be specified.
 
 The search term is interpreted as a regular expression.
+
+## Indepth Examples
+
+### Finding Files With Multiple Conditions
+
+To find all files that have fieldOne.isPresent false _and_ fieldTwo.isPresent true, you can use `srch` with the path `-p` and single `-s` flag together with `uniq -d` and process substitution:
+
+`sort <(srch fieldOne.isPresent false example_files/*.json -p -s) <(srch fieldTwo.isPresent true example_files/*.json -p -s) | uniq -d`
+
+To find all files where (at least) one of the above conditions is met, remove the `-d` flag:
+
+`sort <(srch fieldOne.isPresent false example_files/*.json -p -s) <(srch fieldTwo.isPresent true example_files/*.json -p -s) | uniq`
