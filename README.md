@@ -70,3 +70,37 @@ To find all files that have fieldOne.isPresent false _and_ fieldTwo.isPresent tr
 To find all files where (at least) one of the above conditions is met, remove the `-d` flag:
 
 `sort <(srch fieldOne.isPresent false example_files/*.json -p -s) <(srch fieldTwo.isPresent true example_files/*.json -p -s) | uniq`
+
+### Calculating the Sum of Values
+
+`srch index "[0-9]" example_files/test.json | awk -F ': ' '{sum += $2} END {print sum}'`
+
+### Exclude Data From Specific Field
+
+`srch isPresent true example_files/*.json | grep -v "fieldTwo"`
+
+### Copying Files Conditionally
+
+`srch isPresent true example_files/*.json -p -s | xargs -I {} cp {} backup_dir/`
+
+### Tabular Output
+
+`srch index "[0-3]" example_files/*.json | column -t -s ':'`
+
+### Adding Line Numbers
+
+`srch index "[0-3]" example_files/*.json | nl`
+
+### Conditional Logic in Scripts
+
+```bash
+#!/bin/bash
+
+output=$(srch isPresent true example_files/*.json)
+
+if [ -z "$output" ]; then
+  echo "Did not find 'isPresent: true'."
+else
+  echo "Found 'isPresent: true' in at least one file."
+fi
+```
