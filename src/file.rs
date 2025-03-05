@@ -1,5 +1,3 @@
-use regex::Regex;
-
 use std::fs;
 use std::io::{self, BufReader, Read};
 
@@ -17,10 +15,7 @@ fn process_file(
     file_path: &str,
     field_path_parts: &[&str],
     field_name: &str,
-    search_regex: &Regex,
-    single: bool,
-    hide_value: bool,
-    field_path_separator: &str,
+    search_context: &SearchContext,
 ) -> Vec<String> {
     match fs::read_to_string(file_path) {
         Ok(file_content) => {
@@ -28,12 +23,7 @@ fn process_file(
                 file_content,
                 field_path_parts,
                 field_name,
-                &SearchContext {
-                    search_regex,
-                    single,
-                    hide_value,
-                    field_path_separator,
-                }
+                search_context,
             );
             match results {
                 Some(result_vec) => result_vec,
@@ -51,21 +41,15 @@ pub fn handle_file_input(
     json_files: &Vec<String>,
     field_path_parts: &[&str],
     field_name: &str,
-    search_regex: &Regex,
-    single: bool,
+    search_context: &SearchContext,
     path_output: bool,
-    hide_value: bool,
-    field_path_separator: &str,
 ) {
     for file_path in json_files {
         let search_results = process_file(
             file_path,
             field_path_parts,
             field_name,
-            search_regex,
-            single,
-            hide_value,
-            field_path_separator,
+            search_context,
         );
         for result_path in search_results {
             if path_output {
@@ -73,7 +57,7 @@ pub fn handle_file_input(
             } else {
                 println!("{}", result_path);
             }
-            if single {
+            if search_context.single {
                 break; // Exit inner loop after first result in single mode
             }
         }
@@ -84,10 +68,7 @@ pub fn handle_string_or_stdin_input(
     json_string: &Option<String>,
     field_path_parts: &[&str],
     field_name: &str,
-    search_regex: &Regex,
-    single: bool,
-    hide_value: bool,
-    field_path_separator: &str,
+    search_context: &SearchContext,
 ) {
     let json_input_raw = match json_string {
         Some(json_str) => json_str.clone(),
@@ -104,12 +85,7 @@ pub fn handle_string_or_stdin_input(
         json_input_raw,
         field_path_parts,
         field_name,
-        &SearchContext {
-            search_regex,
-            single,
-            hide_value,
-            field_path_separator,
-        }
+        search_context,
     ) {
         for result_path in search_results {
             println!("{}", result_path);

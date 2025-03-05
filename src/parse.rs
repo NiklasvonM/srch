@@ -77,7 +77,7 @@ fn search_object(
         results.extend(check_results);
     }
 
-    if !results.is_empty() || !search_context.single && !results.is_empty() {
+    if !results.is_empty() {
         // In non-single mode, return all found results at this level and below.
         // In single mode, if we found anything at this level or below, return it.
         Some(results)
@@ -165,7 +165,7 @@ fn search_array(
         }
     }
 
-    if !results.is_empty() || !search_context.single && !results.is_empty() {
+    if !results.is_empty() {
         // In non-single mode, return all found results at this level and below.
         // In single mode, if we found anything at this level or below, return it.
         Some(results)
