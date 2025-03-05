@@ -10,64 +10,29 @@ fn search_json_value(
     single: bool,
     hide_value: bool,
     field_path_separator: &str,
-) -> Vec<String> {
-    if single {
-        // Early return if single mode and already found a match (by checking results later)
-        let mut temp_results: Vec<String> = Vec::new(); // Create a temp results to check for emptiness later
-        match json_value {
-            Value::Object(obj) => temp_results.extend(search_object(
-                obj,
-                field_path_parts,
-                field_name,
-                search_regex,
-                current_path,
-                single,
-                hide_value,
-                field_path_separator,
-            )),
-            Value::Array(arr) => temp_results.extend(search_array(
-                arr,
-                field_path_parts,
-                field_name,
-                search_regex,
-                current_path,
-                single,
-                hide_value,
-                field_path_separator,
-            )),
-            _ => {} // For other types like String, Number, Bool, do nothing
-        }
-        if !temp_results.is_empty() && single {
-            // Check temp_results after the recursive call.
-            return temp_results; // If temp_results is not empty, return it immediately.
-        } else {
-            return Vec::new(); // Otherwise return empty results to continue search (or effectively stop if no match found deeper).
-        }
-    } else {
-        // Not single mode
-        match json_value {
-            Value::Object(obj) => search_object(
-                obj,
-                field_path_parts,
-                field_name,
-                search_regex,
-                current_path,
-                single,
-                hide_value,
-                field_path_separator,
-            ),
-            Value::Array(arr) => search_array(
-                arr,
-                field_path_parts,
-                field_name,
-                search_regex,
-                current_path,
-                single,
-                hide_value,
-                field_path_separator,
-            ),
-            _ => Vec::new(), // For other types like String, Number, Bool, return empty results
-        }
+) -> Option<Vec<String>> {
+    match json_value {
+        Value::Object(obj) => search_object(
+            obj,
+            field_path_parts,
+            field_name,
+            search_regex,
+            current_path,
+            single,
+            hide_value,
+            field_path_separator,
+        ),
+        Value::Array(arr) => search_array(
+            arr,
+            field_path_parts,
+            field_name,
+            search_regex,
+            current_path,
+            single,
+            hide_value,
+            field_path_separator,
+        ),
+        _ => None, // For other types like String, Number, Bool, no further search, return None
     }
 }
 
@@ -80,13 +45,13 @@ fn search_object(
     single: bool,
     hide_value: bool,
     field_path_separator: &str,
-) -> Vec<String> {
-    let mut results = Vec::new();
+) -> Option<Vec<String>> {
+    let mut results: Vec<String> = Vec::new();
     let mut next_path = current_path.clone();
 
     for (key, value) in obj {
         next_path.push(key.clone());
-        let recursive_results = search_json_value(
+        if let Some(recursive_results) = search_json_value(
             value,
             field_path_parts,
             field_name,
@@ -95,12 +60,12 @@ fn search_object(
             single,
             hide_value,
             field_path_separator,
-        );
-        if single && !recursive_results.is_empty() {
-            // Early return if single and found result in recursion
-            return recursive_results; // Return the result immediately from recursion
+        ) {
+            if single {
+                return Some(recursive_results); // Early return if single and found result in recursion
+            }
+            results.extend(recursive_results); // Otherwise extend all results.
         }
-        results.extend(recursive_results); // Otherwise extend all results.
         next_path.pop(); // Backtrack for next key
     }
 
@@ -114,12 +79,19 @@ fn search_object(
         field_path_separator,
     );
     if single && !check_results.is_empty() {
-        // Early return if single and found result in check
-        return check_results; // Return result immediately from check
+        return Some(check_results); // Early return if single and found result in check
     }
-    results.extend(check_results); // Otherwise extend all results.
+    if !check_results.is_empty() {
+        results.extend(check_results);
+    }
 
-    results
+    if !results.is_empty() || !single && !results.is_empty() {
+        // In non-single mode, return all found results at this level and below.
+        // In single mode, if we found anything at this level or below, return it.
+        Some(results)
+    } else {
+        None // No results found in this object and its children
+    }
 }
 
 fn check_object_match(
@@ -150,18 +122,18 @@ fn check_object_match(
     if path_matches {
         if let Some(value) = obj.get(field_name) {
             if search_regex.is_match(&value_to_string(value).trim_matches('"')) {
-                let mut full_path = current_path.join(field_path_separator)
-                    + (if current_path.is_empty() {
-                        ""
-                    } else {
-                        field_path_separator
-                    })
-                    + field_name;
-                if !hide_value {
-                    full_path.push_str(": ");
-                    full_path.push_str(&value_to_string(value).trim_matches('"'));
-                }
-                results.push(full_path);
+                let full_path = format!(
+                    "{}{}{}",
+                    current_path.join(field_path_separator),
+                    if current_path.is_empty() { "" } else { field_path_separator },
+                    field_name
+                );
+                let output_string = if hide_value {
+                    full_path
+                } else {
+                    format!("{}: {}", full_path, value_to_string(value).trim_matches('"'))
+                };
+                results.push(output_string);
             }
         }
     }
@@ -177,12 +149,12 @@ fn search_array(
     single: bool,
     hide_value: bool,
     field_path_separator: &str,
-) -> Vec<String> {
-    let mut results = Vec::new();
+) -> Option<Vec<String>> {
+    let mut results: Vec<String> = Vec::new();
     for (index, item) in arr.iter().enumerate() {
         let mut next_path = current_path.clone();
         next_path.push(index.to_string()); // Add array index to path
-        let recursive_results = search_json_value(
+        if let Some(recursive_results) = search_json_value(
             item,
             field_path_parts,
             field_name,
@@ -191,14 +163,21 @@ fn search_array(
             single,
             hide_value,
             field_path_separator,
-        );
-        if single && !recursive_results.is_empty() {
-            // Early return if single and found result in recursion
-            return recursive_results; // Return result immediately from recursion
+        ) {
+            if single {
+                return Some(recursive_results); // Early return if single and found result in recursion
+            }
+            results.extend(recursive_results); // Otherwise extend all results.
         }
-        results.extend(recursive_results); // Otherwise extend all results.
     }
-    results
+
+    if !results.is_empty() || !single && !results.is_empty() {
+        // In non-single mode, return all found results at this level and below.
+        // In single mode, if we found anything at this level or below, return it.
+        Some(results)
+    } else {
+        None // No results found in this array and its children
+    }
 }
 
 // Helper function to convert serde_json::Value to String for comparison
@@ -219,7 +198,7 @@ pub fn process_json_input(
     single: bool,
     hide_value: bool,
     field_path_separator: &str,
-) -> Vec<String> {
+) -> Option<Vec<String>> {
     match serde_json::from_str(&json_input_raw) {
         Ok(json_value) => {
             search_json_value(
@@ -235,7 +214,7 @@ pub fn process_json_input(
         }
         Err(e) => {
             eprintln!("Error parsing JSON input: {}", e);
-            Vec::new() // Return empty results on parsing error, avoid program exit in processing files
+            None
         }
     }
 }
@@ -267,7 +246,8 @@ mod tests {
             true,
             false,
             ".",
-        );
+        )
+        .unwrap_or_default();
         assert_eq!(results, vec!["a.b.c: test"]);
     }
 
@@ -289,7 +269,8 @@ mod tests {
             true,
             false,
             ".",
-        );
+        )
+        .unwrap_or_default();
         assert_eq!(results, vec!["1.a: test2"]);
     }
 
@@ -313,7 +294,8 @@ mod tests {
             false,
             false,
             ".",
-        );
+        )
+        .unwrap_or_default();
         assert_eq!(results, vec!["a.b: test"]);
     }
 
@@ -335,7 +317,8 @@ mod tests {
             false,
             false,
             ".",
-        );
+        )
+        .unwrap_or_default();
         assert_eq!(results, vec!["0.a: test", "1.a: test"]);
     }
 
@@ -354,7 +337,8 @@ mod tests {
             false,
             false,
             ".",
-        );
+        )
+        .unwrap_or_default();
         assert_eq!(results, [] as [&str; 0]);
     }
 
@@ -373,7 +357,8 @@ mod tests {
             false,
             true,
             ".",
-        );
+        )
+        .unwrap_or_default();
         assert_eq!(results, vec!["a"]);
     }
 
@@ -392,7 +377,8 @@ mod tests {
             false,
             false,
             ".",
-        );
+        )
+        .unwrap_or_default();
         assert_eq!(results, vec!["a.b.c: test"]);
     }
 
@@ -410,7 +396,8 @@ mod tests {
             false,
             false,
             ".",
-        );
+        )
+        .unwrap_or_default();
         assert_eq!(results, vec!["a: test"]);
     }
 
@@ -428,7 +415,8 @@ mod tests {
             false,
             false,
             ".",
-        );
+        )
+        .unwrap_or_default();
         assert_eq!(results, [] as [&str; 0]);
     }
 }

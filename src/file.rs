@@ -1,7 +1,7 @@
 use regex::Regex;
 
-use std::io::{self, BufReader, Read};
 use std::fs;
+use std::io::{self, BufReader, Read};
 
 use crate::parse::process_json_input;
 
@@ -33,7 +33,10 @@ fn process_file(
                 hide_value,
                 field_path_separator,
             );
-            results
+            match results {
+                Some(result_vec) => result_vec,
+                None => Vec::new(),
+            }
         }
         Err(e) => {
             eprintln!("Error reading file '{}': {}", file_path, e);
@@ -95,7 +98,7 @@ pub fn handle_string_or_stdin_input(
         },
     };
 
-    let search_results = process_json_input(
+    if let Some(search_results) = process_json_input(
         json_input_raw,
         field_path_parts,
         field_name,
@@ -103,8 +106,9 @@ pub fn handle_string_or_stdin_input(
         single,
         hide_value,
         field_path_separator,
-    );
-    for result_path in search_results {
-        println!("{}", result_path);
+    ) {
+        for result_path in search_results {
+            println!("{}", result_path);
+        }
     }
 }
