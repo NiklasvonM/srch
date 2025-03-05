@@ -1,7 +1,7 @@
 use std::fs;
 use std::io::{self, BufReader, Read};
 
-use crate::parse::{SearchContext, process_json_input};
+use crate::parse::{process_json_input, SearchContext};
 
 fn read_from_stdin() -> Result<String, io::Error> {
     let mut buffer = String::new();
@@ -19,14 +19,8 @@ fn process_file(
 ) -> Vec<String> {
     match fs::read_to_string(file_path) {
         Ok(file_content) => {
-            let results = process_json_input(
-                file_content,
-                field_path_parts,
-                field_name,
-                search_context,
-            );
-            match results {
-                Some(result_vec) => result_vec,
+            match process_json_input(file_content, field_path_parts, field_name, search_context) {
+                Some(results) => results,
                 None => Vec::new(),
             }
         }
@@ -45,12 +39,7 @@ pub fn handle_file_input(
     path_output: bool,
 ) {
     for file_path in json_files {
-        let search_results = process_file(
-            file_path,
-            field_path_parts,
-            field_name,
-            search_context,
-        );
+        let search_results = process_file(file_path, field_path_parts, field_name, search_context);
         for result_path in search_results {
             if path_output {
                 println!("{}", file_path);
@@ -81,12 +70,9 @@ pub fn handle_string_or_stdin_input(
         },
     };
 
-    if let Some(search_results) = process_json_input(
-        json_input_raw,
-        field_path_parts,
-        field_name,
-        search_context,
-    ) {
+    if let Some(search_results) =
+        process_json_input(json_input_raw, field_path_parts, field_name, search_context)
+    {
         for result_path in search_results {
             println!("{}", result_path);
         }
