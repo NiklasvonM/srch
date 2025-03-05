@@ -1,36 +1,34 @@
 use regex::Regex;
 use serde_json::Value;
 
+pub struct SearchContext<'a> {
+    pub search_regex: &'a Regex,
+    pub single: bool,
+    pub hide_value: bool,
+    pub field_path_separator: &'a str,
+}
+
 fn search_json_value(
     json_value: &Value,
     field_path_parts: &[&str],
     field_name: &str,
-    search_regex: &Regex,
     current_path: Vec<String>,
-    single: bool,
-    hide_value: bool,
-    field_path_separator: &str,
+    search_context: &SearchContext,
 ) -> Option<Vec<String>> {
     match json_value {
         Value::Object(obj) => search_object(
             obj,
             field_path_parts,
             field_name,
-            search_regex,
             current_path,
-            single,
-            hide_value,
-            field_path_separator,
+            search_context,
         ),
         Value::Array(arr) => search_array(
             arr,
             field_path_parts,
             field_name,
-            search_regex,
             current_path,
-            single,
-            hide_value,
-            field_path_separator,
+            search_context,
         ),
         _ => None, // For other types like String, Number, Bool, no further search, return None
     }
@@ -40,11 +38,8 @@ fn search_object(
     obj: &serde_json::Map<String, Value>,
     field_path_parts: &[&str],
     field_name: &str,
-    search_regex: &Regex,
     current_path: Vec<String>,
-    single: bool,
-    hide_value: bool,
-    field_path_separator: &str,
+    search_context: &SearchContext,
 ) -> Option<Vec<String>> {
     let mut results: Vec<String> = Vec::new();
     let mut next_path = current_path.clone();
@@ -55,13 +50,10 @@ fn search_object(
             value,
             field_path_parts,
             field_name,
-            search_regex,
             next_path.clone(),
-            single,
-            hide_value,
-            field_path_separator,
+            search_context,
         ) {
-            if single {
+            if search_context.single {
                 return Some(recursive_results); // Early return if single and found result in recursion
             }
             results.extend(recursive_results); // Otherwise extend all results.
@@ -73,19 +65,19 @@ fn search_object(
         obj,
         field_path_parts,
         field_name,
-        search_regex,
         &current_path,
-        hide_value,
-        field_path_separator,
+        search_context.search_regex,
+        search_context.hide_value,
+        search_context.field_path_separator,
     );
-    if single && !check_results.is_empty() {
+    if search_context.single && !check_results.is_empty() {
         return Some(check_results); // Early return if single and found result in check
     }
     if !check_results.is_empty() {
         results.extend(check_results);
     }
 
-    if !results.is_empty() || !single && !results.is_empty() {
+    if !results.is_empty() || !search_context.single && !results.is_empty() {
         // In non-single mode, return all found results at this level and below.
         // In single mode, if we found anything at this level or below, return it.
         Some(results)
@@ -98,8 +90,8 @@ fn check_object_match(
     obj: &serde_json::Map<String, Value>,
     field_path_parts: &[&str],
     field_name: &str,
-    search_regex: &Regex,
     current_path: &Vec<String>,
+    search_regex: &Regex,
     hide_value: bool,
     field_path_separator: &str,
 ) -> Vec<String> {
@@ -125,13 +117,21 @@ fn check_object_match(
                 let full_path = format!(
                     "{}{}{}",
                     current_path.join(field_path_separator),
-                    if current_path.is_empty() { "" } else { field_path_separator },
+                    if current_path.is_empty() {
+                        ""
+                    } else {
+                        field_path_separator
+                    },
                     field_name
                 );
                 let output_string = if hide_value {
                     full_path
                 } else {
-                    format!("{}: {}", full_path, value_to_string(value).trim_matches('"'))
+                    format!(
+                        "{}: {}",
+                        full_path,
+                        value_to_string(value).trim_matches('"')
+                    )
                 };
                 results.push(output_string);
             }
@@ -144,11 +144,8 @@ fn search_array(
     arr: &Vec<Value>,
     field_path_parts: &[&str],
     field_name: &str,
-    search_regex: &Regex,
     current_path: Vec<String>,
-    single: bool,
-    hide_value: bool,
-    field_path_separator: &str,
+    search_context: &SearchContext,
 ) -> Option<Vec<String>> {
     let mut results: Vec<String> = Vec::new();
     for (index, item) in arr.iter().enumerate() {
@@ -158,20 +155,17 @@ fn search_array(
             item,
             field_path_parts,
             field_name,
-            search_regex,
             next_path,
-            single,
-            hide_value,
-            field_path_separator,
+            search_context,
         ) {
-            if single {
+            if search_context.single {
                 return Some(recursive_results); // Early return if single and found result in recursion
             }
             results.extend(recursive_results); // Otherwise extend all results.
         }
     }
 
-    if !results.is_empty() || !single && !results.is_empty() {
+    if !results.is_empty() || !search_context.single && !results.is_empty() {
         // In non-single mode, return all found results at this level and below.
         // In single mode, if we found anything at this level or below, return it.
         Some(results)
@@ -194,10 +188,7 @@ pub fn process_json_input(
     json_input_raw: String,
     field_path_parts: &[&str],
     field_name: &str,
-    search_regex: &Regex,
-    single: bool,
-    hide_value: bool,
-    field_path_separator: &str,
+    search_context: &SearchContext,
 ) -> Option<Vec<String>> {
     match serde_json::from_str(&json_input_raw) {
         Ok(json_value) => {
@@ -205,11 +196,8 @@ pub fn process_json_input(
                 &json_value,
                 field_path_parts,
                 field_name,
-                search_regex,
                 Vec::new(), // Initial path is empty
-                single,
-                hide_value,
-                field_path_separator,
+                search_context,
             )
         }
         Err(e) => {
@@ -241,11 +229,13 @@ mod tests {
             &json_value,
             field_path_parts,
             field_name,
-            &search_regex,
             Vec::new(),
-            true,
-            false,
-            ".",
+            &SearchContext {
+                search_regex: &search_regex,
+                single: true,
+                hide_value: false,
+                field_path_separator: ".",
+            },
         )
         .unwrap_or_default();
         assert_eq!(results, vec!["a.b.c: test"]);
@@ -264,11 +254,13 @@ mod tests {
             &json_value,
             field_path_parts,
             field_name,
-            &search_regex,
             Vec::new(),
-            true,
-            false,
-            ".",
+            &SearchContext {
+                search_regex: &search_regex,
+                single: true,
+                hide_value: false,
+                field_path_separator: ".",
+            },
         )
         .unwrap_or_default();
         assert_eq!(results, vec!["1.a: test2"]);
@@ -289,11 +281,13 @@ mod tests {
             &json_value,
             field_path_parts,
             field_name,
-            &search_regex,
             Vec::new(),
-            false,
-            false,
-            ".",
+            &SearchContext {
+                search_regex: &search_regex,
+                single: false,
+                hide_value: false,
+                field_path_separator: ".",
+            },
         )
         .unwrap_or_default();
         assert_eq!(results, vec!["a.b: test"]);
@@ -312,11 +306,13 @@ mod tests {
             &json_value,
             field_path_parts,
             field_name,
-            &search_regex,
             Vec::new(),
-            false,
-            false,
-            ".",
+            &SearchContext {
+                search_regex: &search_regex,
+                single: false,
+                hide_value: false,
+                field_path_separator: ".",
+            },
         )
         .unwrap_or_default();
         assert_eq!(results, vec!["0.a: test", "1.a: test"]);
@@ -332,11 +328,13 @@ mod tests {
             &json_value,
             field_path_parts,
             field_name,
-            &search_regex,
             Vec::new(),
-            false,
-            false,
-            ".",
+            &SearchContext {
+                search_regex: &search_regex,
+                single: false,
+                hide_value: false,
+                field_path_separator: ".",
+            },
         )
         .unwrap_or_default();
         assert_eq!(results, [] as [&str; 0]);
@@ -352,11 +350,13 @@ mod tests {
             &json_value,
             field_path_parts,
             field_name,
-            &search_regex,
             Vec::new(),
-            false,
-            true,
-            ".",
+            &SearchContext {
+                search_regex: &search_regex,
+                single: false,
+                hide_value: true,
+                field_path_separator: ".",
+            },
         )
         .unwrap_or_default();
         assert_eq!(results, vec!["a"]);
@@ -372,11 +372,13 @@ mod tests {
             &json_value,
             field_path_parts,
             field_name,
-            &search_regex,
             Vec::new(),
-            false,
-            false,
-            ".",
+            &SearchContext {
+                search_regex: &search_regex,
+                single: false,
+                hide_value: false,
+                field_path_separator: ".",
+            },
         )
         .unwrap_or_default();
         assert_eq!(results, vec!["a.b.c: test"]);
@@ -392,10 +394,12 @@ mod tests {
             json_input,
             field_path_parts,
             field_name,
-            &search_regex,
-            false,
-            false,
-            ".",
+            &SearchContext {
+                search_regex: &search_regex,
+                single: false,
+                hide_value: false,
+                field_path_separator: ".",
+            },
         )
         .unwrap_or_default();
         assert_eq!(results, vec!["a: test"]);
@@ -411,10 +415,12 @@ mod tests {
             json_input,
             field_path_parts,
             field_name,
-            &search_regex,
-            false,
-            false,
-            ".",
+            &SearchContext {
+                search_regex: &search_regex,
+                single: false,
+                hide_value: false,
+                field_path_separator: ".",
+            },
         )
         .unwrap_or_default();
         assert_eq!(results, [] as [&str; 0]);

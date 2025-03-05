@@ -3,7 +3,7 @@ use regex::Regex;
 use std::fs;
 use std::io::{self, BufReader, Read};
 
-use crate::parse::process_json_input;
+use crate::parse::{SearchContext, process_json_input};
 
 fn read_from_stdin() -> Result<String, io::Error> {
     let mut buffer = String::new();
@@ -28,10 +28,12 @@ fn process_file(
                 file_content,
                 field_path_parts,
                 field_name,
-                search_regex,
-                single,
-                hide_value,
-                field_path_separator,
+                &SearchContext {
+                    search_regex,
+                    single,
+                    hide_value,
+                    field_path_separator,
+                }
             );
             match results {
                 Some(result_vec) => result_vec,
@@ -102,10 +104,12 @@ pub fn handle_string_or_stdin_input(
         json_input_raw,
         field_path_parts,
         field_name,
-        search_regex,
-        single,
-        hide_value,
-        field_path_separator,
+        &SearchContext {
+            search_regex,
+            single,
+            hide_value,
+            field_path_separator,
+        }
     ) {
         for result_path in search_results {
             println!("{}", result_path);
