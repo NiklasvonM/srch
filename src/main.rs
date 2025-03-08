@@ -22,6 +22,7 @@ fn main() {
                 single: args.single,
                 hide_value: args.hide_value,
                 field_path_separator: &args.field_path_separator,
+                numeric_search: args.numeric_search,
             };
             match parse_search_path(&args.search_path, search_context.field_path_separator) {
                 Ok((field_path_parts, field_name)) => {

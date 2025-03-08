@@ -68,6 +68,13 @@ pub struct Cli {
         help = "If provided, the values found are not printed."
     )]
     pub hide_value: bool,
+
+    #[clap(
+        short = 'n',
+        long = "numeric",
+        help = "Treat the search term as a numeric comparison (e.g., '>25', '<=10', or ranges like '>10<20')."
+    )]
+    pub numeric_search: bool,
 }
 
 #[cfg(test)]
@@ -86,6 +93,7 @@ mod tests {
         assert_eq!(args.path_output, false);
         assert_eq!(args.field_path_separator, ".");
         assert_eq!(args.hide_value, false);
+        assert_eq!(args.numeric_search, false);
     }
 
     #[test]
@@ -101,6 +109,7 @@ mod tests {
             "-f",
             "_",
             "-d",
+            "-n",
         ]);
         assert_eq!(args.json_string, Some("{\"key\": \"value\"}".to_string()));
         assert_eq!(args.search_path, "field.name");
@@ -110,6 +119,7 @@ mod tests {
         assert_eq!(args.path_output, true);
         assert_eq!(args.field_path_separator, "_");
         assert_eq!(args.hide_value, true);
+        assert_eq!(args.numeric_search, true);
     }
 
     #[test]
@@ -125,6 +135,7 @@ mod tests {
             "--field-path-separator",
             "_",
             "--hide-value",
+            "--numeric",
         ]);
         assert_eq!(args.json_string, Some("{\"key\": \"value\"}".to_string()));
         assert_eq!(args.search_path, "field.name");
@@ -134,6 +145,7 @@ mod tests {
         assert_eq!(args.path_output, true);
         assert_eq!(args.field_path_separator, "_");
         assert_eq!(args.hide_value, true);
+        assert_eq!(args.numeric_search, true);
     }
 
     #[test]
