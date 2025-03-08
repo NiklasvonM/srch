@@ -1,6 +1,7 @@
 use std::fs;
 use std::io::{self, BufReader, Read};
 
+use crate::format::format_text_output;
 use crate::parse::{process_json_input, SearchContext, SearchResult};
 
 fn read_from_stdin() -> Result<String, io::Error> {
@@ -37,18 +38,13 @@ pub fn handle_file_input(
     field_name: &str,
     search_context: &SearchContext,
     path_output: bool,
+    hide_value: bool,
 ) {
     for file_path in json_files {
         let search_results = process_file(file_path, field_path_parts, field_name, search_context);
         for result in search_results {
-            if path_output {
-                println!("{}", file_path);
-            } else {
-                println!("{}", result.format(search_context.hide_value));
-            }
-            if search_context.single {
-                break; // Exit inner loop after first result in single mode
-            }
+            let output = format_text_output(&result, hide_value, path_output, Some(file_path));
+            println!("{}", output);
         }
     }
 }
@@ -58,6 +54,7 @@ pub fn handle_string_or_stdin_input(
     field_path_parts: &[&str],
     field_name: &str,
     search_context: &SearchContext,
+    hide_value: bool,
 ) {
     let json_input_raw = match json_string {
         Some(json_str) => json_str.clone(),
@@ -74,7 +71,8 @@ pub fn handle_string_or_stdin_input(
         process_json_input(json_input_raw, field_path_parts, field_name, search_context)
     {
         for result in search_results {
-            println!("{}", result.format(search_context.hide_value));
+            let output = format_text_output(&result, hide_value, false, None); // path_output is always false for string/stdin
+            println!("{}", output);
         }
     }
 }

@@ -4,7 +4,6 @@ use serde_json::Value;
 pub struct SearchContext<'a> {
     pub search_regex: &'a Regex,
     pub single: bool,
-    pub hide_value: bool,
     pub field_path_separator: &'a str,
     pub numeric_search: bool,
 }
@@ -16,14 +15,6 @@ pub struct SearchResult {
 }
 
 impl SearchResult {
-    pub fn format(&self, hide_value: bool) -> String {
-        if hide_value {
-            self.json_path.clone()
-        } else {
-            format!("{}: {}", self.json_path, self.value)
-        }
-    }
-
     fn create(
         current_path: &Vec<String>,
         field_name: &str,
@@ -368,7 +359,6 @@ mod tests {
             &SearchContext {
                 search_regex: &search_regex,
                 single: true,
-                hide_value: false,
                 field_path_separator: ".",
                 numeric_search: false,
             },
@@ -400,7 +390,6 @@ mod tests {
             &SearchContext {
                 search_regex: &search_regex,
                 single: true,
-                hide_value: false,
                 field_path_separator: ".",
                 numeric_search: false,
             },
@@ -434,7 +423,6 @@ mod tests {
             &SearchContext {
                 search_regex: &search_regex,
                 single: false,
-                hide_value: false,
                 field_path_separator: ".",
                 numeric_search: false,
             },
@@ -466,7 +454,6 @@ mod tests {
             &SearchContext {
                 search_regex: &search_regex,
                 single: false,
-                hide_value: false,
                 field_path_separator: ".",
                 numeric_search: false,
             },
@@ -501,42 +488,12 @@ mod tests {
             &SearchContext {
                 search_regex: &search_regex,
                 single: false,
-                hide_value: false,
                 field_path_separator: ".",
                 numeric_search: false,
             },
         )
         .unwrap_or_default();
         assert_eq!(results, vec![]);
-    }
-
-    #[test]
-    fn test_search_json_value_hide_value() {
-        let json_value = json!({"a": "test"});
-        let field_path_parts = &[];
-        let field_name = "a";
-        let search_regex = Regex::new("test").unwrap();
-        let results = search_json_value(
-            &json_value,
-            field_path_parts,
-            field_name,
-            Vec::new(),
-            &SearchContext {
-                search_regex: &search_regex,
-                single: false,
-                hide_value: true,
-                field_path_separator: ".",
-                numeric_search: false,
-            },
-        )
-        .unwrap_or_default();
-        assert_eq!(
-            results,
-            vec![SearchResult {
-                json_path: "a".to_string(),
-                value: "test".to_string(),
-            }],
-        ); // Value is still captured in struct
     }
 
     #[test]
@@ -553,7 +510,6 @@ mod tests {
             &SearchContext {
                 search_regex: &search_regex,
                 single: false,
-                hide_value: false,
                 field_path_separator: ".",
                 numeric_search: false,
             },
@@ -581,7 +537,6 @@ mod tests {
             &SearchContext {
                 search_regex: &search_regex,
                 single: false,
-                hide_value: false,
                 field_path_separator: ".",
                 numeric_search: false,
             },
@@ -609,7 +564,6 @@ mod tests {
             &SearchContext {
                 search_regex: &search_regex,
                 single: false,
-                hide_value: false,
                 field_path_separator: ".",
                 numeric_search: false,
             },
@@ -632,7 +586,6 @@ mod tests {
             &SearchContext {
                 search_regex: &search_regex,
                 single: false,
-                hide_value: false,
                 field_path_separator: ".",
                 numeric_search: true,
             },
@@ -661,7 +614,6 @@ mod tests {
             &SearchContext {
                 search_regex: &search_regex,
                 single: false,
-                hide_value: false,
                 field_path_separator: ".",
                 numeric_search: true,
             },
@@ -690,7 +642,6 @@ mod tests {
             &SearchContext {
                 search_regex: &search_regex,
                 single: false,
-                hide_value: false,
                 field_path_separator: ".",
                 numeric_search: true,
             },
@@ -713,7 +664,6 @@ mod tests {
             &SearchContext {
                 search_regex: &search_regex,
                 single: false,
-                hide_value: false,
                 field_path_separator: ".",
                 numeric_search: true,
             },
@@ -736,7 +686,6 @@ mod tests {
             &SearchContext {
                 search_regex: &search_regex,
                 single: false,
-                hide_value: false,
                 field_path_separator: ".",
                 numeric_search: true,
             },
@@ -765,7 +714,6 @@ mod tests {
             &SearchContext {
                 search_regex: &search_regex,
                 single: false,
-                hide_value: false,
                 field_path_separator: ".",
                 numeric_search: true,
             },
@@ -788,7 +736,6 @@ mod tests {
             &SearchContext {
                 search_regex: &search_regex,
                 single: false,
-                hide_value: false,
                 field_path_separator: ".",
                 numeric_search: true,
             },
@@ -811,7 +758,6 @@ mod tests {
             &SearchContext {
                 search_regex: &search_regex,
                 single: false,
-                hide_value: false,
                 field_path_separator: ".",
                 numeric_search: true,
             },
@@ -840,7 +786,6 @@ mod tests {
             &SearchContext {
                 search_regex: &search_regex,
                 single: false,
-                hide_value: false,
                 field_path_separator: ".",
                 numeric_search: true,
             },
@@ -863,7 +808,6 @@ mod tests {
             &SearchContext {
                 search_regex: &search_regex,
                 single: false,
-                hide_value: false,
                 field_path_separator: ".",
                 numeric_search: true,
             },
@@ -886,7 +830,6 @@ mod tests {
             &SearchContext {
                 search_regex: &search_regex,
                 single: false,
-                hide_value: false,
                 field_path_separator: ".",
                 numeric_search: true,
             },
