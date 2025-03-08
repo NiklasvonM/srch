@@ -9,13 +9,51 @@ pub struct SearchContext<'a> {
     pub numeric_search: bool,
 }
 
+#[derive(Debug, PartialEq)]
+pub struct SearchResult {
+    pub json_path: String,
+    pub value: String,
+}
+
+impl SearchResult {
+    pub fn format(&self, hide_value: bool) -> String {
+        if hide_value {
+            self.json_path.clone()
+        } else {
+            format!("{}: {}", self.json_path, self.value)
+        }
+    }
+
+    fn create(
+        current_path: &Vec<String>,
+        field_name: &str,
+        value: &Value,
+        search_context: &SearchContext,
+    ) -> SearchResult {
+        let full_path = format!(
+            "{}{}{}",
+            current_path.join(search_context.field_path_separator),
+            if current_path.is_empty() {
+                ""
+            } else {
+                search_context.field_path_separator
+            },
+            field_name
+        );
+        SearchResult {
+            json_path: full_path,
+            value: value_to_string(value).trim_matches('"').to_string(),
+        }
+    }
+}
+
 fn search_json_value(
     json_value: &Value,
     field_path_parts: &[&str],
     field_name: &str,
     current_path: Vec<String>,
     search_context: &SearchContext,
-) -> Option<Vec<String>> {
+) -> Option<Vec<SearchResult>> {
     match json_value {
         Value::Object(obj) => search_object(
             obj,
@@ -41,8 +79,8 @@ fn search_object(
     field_name: &str,
     current_path: Vec<String>,
     search_context: &SearchContext,
-) -> Option<Vec<String>> {
-    let mut results: Vec<String> = Vec::new();
+) -> Option<Vec<SearchResult>> {
+    let mut results: Vec<SearchResult> = Vec::new();
     let mut next_path = current_path.clone();
 
     for (key, value) in obj {
@@ -91,8 +129,8 @@ fn check_object_match(
     field_name: &str,
     current_path: &Vec<String>,
     search_context: &SearchContext,
-) -> Vec<String> {
-    let mut results = Vec::new();
+) -> Vec<SearchResult> {
+    let mut results: Vec<SearchResult> = Vec::new();
     let path_matches = if !field_path_parts.is_empty() {
         let mut current_path_index = 0;
         let mut field_path_index = 0;
@@ -126,26 +164,12 @@ fn check_object_match(
                 value.as_f64(),
             ) {
                 if compare_number_range(json_num, target_num1, op1, target_num2, op2) {
-                    let full_path = format!(
-                        "{}{}{}",
-                        current_path.join(search_context.field_path_separator),
-                        if current_path.is_empty() {
-                            ""
-                        } else {
-                            search_context.field_path_separator
-                        },
-                        field_name
-                    );
-                    let output_string = if search_context.hide_value {
-                        full_path
-                    } else {
-                        format!(
-                            "{}: {}",
-                            full_path,
-                            value_to_string(value).trim_matches('"')
-                        )
-                    };
-                    results.push(output_string);
+                    results.push(SearchResult::create(
+                        current_path,
+                        field_name,
+                        value,
+                        search_context,
+                    ));
                 }
             } else if let Some((op, num_str)) =
                 parse_numeric_search_term(search_context.search_regex.as_str())
@@ -153,26 +177,12 @@ fn check_object_match(
                 // Fallback to single numeric comparison if range parsing fails
                 if let (Ok(target_num), Some(json_num)) = (num_str.parse::<f64>(), value.as_f64()) {
                     if compare_numbers(json_num, target_num, op) {
-                        let full_path = format!(
-                            "{}{}{}",
-                            current_path.join(search_context.field_path_separator),
-                            if current_path.is_empty() {
-                                ""
-                            } else {
-                                search_context.field_path_separator
-                            },
-                            field_name
-                        );
-                        let output_string = if search_context.hide_value {
-                            full_path
-                        } else {
-                            format!(
-                                "{}: {}",
-                                full_path,
-                                value_to_string(value).trim_matches('"')
-                            )
-                        };
-                        results.push(output_string);
+                        results.push(SearchResult::create(
+                            current_path,
+                            field_name,
+                            value,
+                            search_context,
+                        ));
                     }
                 }
             }
@@ -182,26 +192,12 @@ fn check_object_match(
             // Fallback to single numeric comparison if range parsing fails
             if let (Ok(target_num), Some(json_num)) = (num_str.parse::<f64>(), value.as_f64()) {
                 if compare_numbers(json_num, target_num, op) {
-                    let full_path = format!(
-                        "{}{}{}",
-                        current_path.join(search_context.field_path_separator),
-                        if current_path.is_empty() {
-                            ""
-                        } else {
-                            search_context.field_path_separator
-                        },
-                        field_name
-                    );
-                    let output_string = if search_context.hide_value {
-                        full_path
-                    } else {
-                        format!(
-                            "{}: {}",
-                            full_path,
-                            value_to_string(value).trim_matches('"')
-                        )
-                    };
-                    results.push(output_string);
+                    results.push(SearchResult::create(
+                        current_path,
+                        field_name,
+                        value,
+                        search_context,
+                    ));
                 }
             }
         }
@@ -211,26 +207,12 @@ fn check_object_match(
             .search_regex
             .is_match(&value_to_string(value).trim_matches('"'))
         {
-            let full_path = format!(
-                "{}{}{}",
-                current_path.join(search_context.field_path_separator),
-                if current_path.is_empty() {
-                    ""
-                } else {
-                    search_context.field_path_separator
-                },
-                field_name
-            );
-            let output_string = if search_context.hide_value {
-                full_path
-            } else {
-                format!(
-                    "{}: {}",
-                    full_path,
-                    value_to_string(value).trim_matches('"')
-                )
-            };
-            results.push(output_string);
+            results.push(SearchResult::create(
+                current_path,
+                field_name,
+                value,
+                search_context,
+            ));
         }
     }
 
@@ -299,8 +281,8 @@ fn search_array(
     field_name: &str,
     current_path: Vec<String>,
     search_context: &SearchContext,
-) -> Option<Vec<String>> {
-    let mut results: Vec<String> = Vec::new();
+) -> Option<Vec<SearchResult>> {
+    let mut results: Vec<SearchResult> = Vec::new();
     for (index, item) in arr.iter().enumerate() {
         let mut next_path = current_path.clone();
         next_path.push(index.to_string()); // Add array index to path
@@ -342,7 +324,7 @@ pub fn process_json_input(
     field_path_parts: &[&str],
     field_name: &str,
     search_context: &SearchContext,
-) -> Option<Vec<String>> {
+) -> Option<Vec<SearchResult>> {
     match serde_json::from_str(&json_input_raw) {
         Ok(json_value) => {
             search_json_value(
@@ -392,7 +374,13 @@ mod tests {
             },
         )
         .unwrap_or_default();
-        assert_eq!(results, vec!["a.b.c: test"]);
+        assert_eq!(
+            results,
+            vec![SearchResult {
+                json_path: "a.b.c".to_string(),
+                value: "test".to_string(),
+            }],
+        );
     }
 
     #[test]
@@ -418,7 +406,13 @@ mod tests {
             },
         )
         .unwrap_or_default();
-        assert_eq!(results, vec!["1.a: test2"]);
+        assert_eq!(
+            results,
+            vec![SearchResult {
+                json_path: "1.a".to_string(),
+                value: "test2".to_string(),
+            }],
+        );
     }
 
     #[test]
@@ -446,7 +440,13 @@ mod tests {
             },
         )
         .unwrap_or_default();
-        assert_eq!(results, vec!["a.b: test"]);
+        assert_eq!(
+            results,
+            vec![SearchResult {
+                json_path: "a.b".to_string(),
+                value: "test".to_string(),
+            }],
+        );
     }
 
     #[test]
@@ -472,7 +472,19 @@ mod tests {
             },
         )
         .unwrap_or_default();
-        assert_eq!(results, vec!["0.a: test", "1.a: test"]);
+        assert_eq!(
+            results,
+            vec![
+                SearchResult {
+                    json_path: "0.a".to_string(),
+                    value: "test".to_string(),
+                },
+                SearchResult {
+                    json_path: "1.a".to_string(),
+                    value: "test".to_string(),
+                },
+            ],
+        );
     }
 
     #[test]
@@ -495,7 +507,7 @@ mod tests {
             },
         )
         .unwrap_or_default();
-        assert_eq!(results, [] as [&str; 0]);
+        assert_eq!(results, vec![]);
     }
 
     #[test]
@@ -518,7 +530,13 @@ mod tests {
             },
         )
         .unwrap_or_default();
-        assert_eq!(results, vec!["a"]);
+        assert_eq!(
+            results,
+            vec![SearchResult {
+                json_path: "a".to_string(),
+                value: "test".to_string(),
+            }],
+        ); // Value is still captured in struct
     }
 
     #[test]
@@ -541,7 +559,13 @@ mod tests {
             },
         )
         .unwrap_or_default();
-        assert_eq!(results, vec!["a.b.c: test"]);
+        assert_eq!(
+            results,
+            vec![SearchResult {
+                json_path: "a.b.c".to_string(),
+                value: "test".to_string(),
+            }],
+        );
     }
 
     #[test]
@@ -563,7 +587,13 @@ mod tests {
             },
         )
         .unwrap_or_default();
-        assert_eq!(results, vec!["a: test"]);
+        assert_eq!(
+            results,
+            vec![SearchResult {
+                json_path: "a".to_string(),
+                value: "test".to_string(),
+            }],
+        );
     }
 
     #[test]
@@ -585,7 +615,7 @@ mod tests {
             },
         )
         .unwrap_or_default();
-        assert_eq!(results, [] as [&str; 0]);
+        assert_eq!(results, vec![]);
     }
 
     #[test]
@@ -608,7 +638,13 @@ mod tests {
             },
         )
         .unwrap_or_default();
-        assert_eq!(results, vec!["a: 30"]);
+        assert_eq!(
+            results,
+            vec![SearchResult {
+                json_path: "a".to_string(),
+                value: "30".to_string(),
+            }],
+        );
     }
 
     #[test]
@@ -631,7 +667,13 @@ mod tests {
             },
         )
         .unwrap_or_default();
-        assert_eq!(results, vec!["a: 10"]);
+        assert_eq!(
+            results,
+            vec![SearchResult {
+                json_path: "a".to_string(),
+                value: "10".to_string(),
+            }],
+        );
     }
 
     #[test]
@@ -654,7 +696,7 @@ mod tests {
             },
         )
         .unwrap_or_default();
-        assert_eq!(results, [] as [&str; 0]);
+        assert_eq!(results, vec![]);
     }
 
     #[test]
@@ -677,7 +719,7 @@ mod tests {
             },
         )
         .unwrap_or_default();
-        assert_eq!(results, [] as [&str; 0]); // Should not match as operator is invalid/unsupported
+        assert_eq!(results, vec![]); // Should not match as operator is invalid/unsupported
     }
 
     #[test]
@@ -700,7 +742,13 @@ mod tests {
             },
         )
         .unwrap_or_default();
-        assert_eq!(results, vec!["a: 15"]);
+        assert_eq!(
+            results,
+            vec![SearchResult {
+                json_path: "a".to_string(),
+                value: "15".to_string(),
+            }],
+        );
     }
 
     #[test]
@@ -723,7 +771,7 @@ mod tests {
             },
         )
         .unwrap_or_default();
-        assert_eq!(results, [] as [&str; 0]);
+        assert_eq!(results, vec![]);
     }
 
     #[test]
@@ -746,7 +794,7 @@ mod tests {
             },
         )
         .unwrap_or_default();
-        assert_eq!(results, [] as [&str; 0]);
+        assert_eq!(results, vec![]);
     }
 
     #[test]
@@ -769,7 +817,13 @@ mod tests {
             },
         )
         .unwrap_or_default();
-        assert_eq!(results, vec!["a: 10"]);
+        assert_eq!(
+            results,
+            vec![SearchResult {
+                json_path: "a".to_string(),
+                value: "10".to_string(),
+            }],
+        );
     }
 
     #[test]
@@ -792,7 +846,7 @@ mod tests {
             },
         )
         .unwrap_or_default();
-        assert_eq!(results, [] as [&str; 0]); // 20 is not smaller than 20
+        assert_eq!(results, vec![]); // 20 is not smaller than 20
     }
 
     #[test]
@@ -815,7 +869,7 @@ mod tests {
             },
         )
         .unwrap_or_default();
-        assert_eq!(results, [] as [&str; 0]); // Should not match due to invalid format
+        assert_eq!(results, vec![]); // Should not match due to invalid format
     }
 
     #[test]
@@ -838,6 +892,12 @@ mod tests {
             },
         )
         .unwrap_or_default();
-        assert_eq!(results, vec!["a: 12"]);
+        assert_eq!(
+            results,
+            vec![SearchResult {
+                json_path: "a".to_string(),
+                value: "12".to_string(),
+            }],
+        );
     }
 }
