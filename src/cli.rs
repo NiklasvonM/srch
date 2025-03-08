@@ -13,6 +13,7 @@ use clap::Parser;
                 srch key_nested_value \"test\" data.json -f \"_\"\t# Custom separator
                 srch index \"[0-9]\" data.json --hide-values\t# Show paths only"
 )]
+#[command(version)]
 pub struct Cli {
     #[clap(
         short = 'j',
