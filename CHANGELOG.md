@@ -9,8 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- NA
-- 
+- [Support numeric search via `-n` flag.](https://github.com/NiklasvonM/srch/issues/5)
+- Add version number `--version`.
+
 ### Changed
 
 - Respect field path separator in output.
