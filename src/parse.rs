@@ -1,6 +1,8 @@
 use regex::Regex;
 use serde_json::Value;
 
+use crate::syntax::{parse_numeric_range_term, parse_numeric_search_term};
+
 pub struct SearchContext<'a> {
     pub search_regex: &'a Regex,
     pub single: bool,
@@ -208,38 +210,6 @@ fn check_object_match(
     }
 
     results
-}
-
-fn parse_numeric_search_term(search_term: &str) -> Option<(&str, &str)> {
-    let ops = ["<=", ">=", "==", "<", ">"];
-    for op in ops {
-        if let Some(num_str) = search_term.strip_prefix(op) {
-            return Some((op, num_str));
-        }
-    }
-    None
-}
-
-fn parse_numeric_range_term(search_term: &str) -> Option<((&str, &str), (&str, &str))> {
-    let ops = ["<=", ">=", "<", ">"];
-    for op1 in &ops {
-        for op2 in &ops {
-            // Example pattern: >10<20, >=5<=15, 10, <=25>=1
-            if let Some(rest1) = search_term.strip_prefix(op1) {
-                if let Some(num_str1_end_op2) = rest1.find(op2) {
-                    let num_str1 = &rest1[..num_str1_end_op2];
-                    let rest2 = &rest1[num_str1_end_op2..];
-                    let op_str2 = &rest2[..op2.len()]; // extract operator 2
-                    let num_str2 = &rest2[op2.len()..]; // extract number 2
-
-                    if !num_str1.is_empty() && !num_str2.is_empty() {
-                        return Some(((op1, num_str1), (op_str2, num_str2)));
-                    }
-                }
-            }
-        }
-    }
-    None
 }
 
 fn compare_numbers(json_num: f64, target_num: f64, op: &str) -> bool {

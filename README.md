@@ -43,6 +43,7 @@ examples_files/test.json:
 | srch index "1\|2" example_files/*.json                   | someList.0.fieldTwo.index: 1<br>someList.1.fieldOne.index: 2                                 |
 | srch index "[0-2]" example_files/*.json                  | someList.0.fieldOne.index: 0<br>someList.0.fieldTwo.index: 1<br>someList.1.fieldOne.index: 2 |
 | srch index "[^1]" example_files/*.json                   | someList.0.fieldOne.index: 0<br>someList.1.fieldOne.index: 2<br>someList.1.fieldTwo.index: 3 |
+| srch index ">1<4" example_files/*.json -n                 | someList.1.fieldOne.index: 2<br>someList.1.fieldTwo.index: 3                                 |
 | srch fieldOne.isPresent true example_files/*.json        | someList.1.fieldOne.isPresent: true                                                          |
 | srch 1.fieldOne.isPresent true example_files/test.json   | someList.1.fieldOne.isPresent: true                                                          |
 | srch 0.fieldOne.isPresent true example_files/test.json   |                                                                                              |
@@ -57,7 +58,7 @@ examples_files/test.json:
 
 The field names in the field path are separated by dots "." by default, can be changed via `-f` flag. Integers are interpreted as list indices, starting at 0. Only the "tail" of the field path needs to be specified.
 
-The search term is interpreted as a regular expression.
+The search term is interpreted as a regular expression, unless the `-n`/`--numeric` flag is used. Then up to two of the operations "<=", ">=", "<" and ">" are allowed, for examples ">0<2" or "<100".
 
 ## Indepth Examples
 

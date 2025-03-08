@@ -24,6 +24,38 @@ pub fn parse_search_path<'a>(
     }
 }
 
+pub fn parse_numeric_search_term(search_term: &str) -> Option<(&str, &str)> {
+    let ops = ["<=", ">=", "<", ">"];
+    for op in ops {
+        if let Some(num_str) = search_term.strip_prefix(op) {
+            return Some((op, num_str));
+        }
+    }
+    None
+}
+
+pub fn parse_numeric_range_term(search_term: &str) -> Option<((&str, &str), (&str, &str))> {
+    let ops = ["<=", ">=", "<", ">"];
+    for op1 in &ops {
+        for op2 in &ops {
+            // Example pattern: >10<20, >=5<=15, 10, <=25>=1
+            if let Some(rest1) = search_term.strip_prefix(op1) {
+                if let Some(num_str1_end_op2) = rest1.find(op2) {
+                    let num_str1 = &rest1[..num_str1_end_op2];
+                    let rest2 = &rest1[num_str1_end_op2..];
+                    let op_str2 = &rest2[..op2.len()];
+                    let num_str2 = &rest2[op2.len()..];
+
+                    if !num_str1.is_empty() && !num_str2.is_empty() {
+                        return Some(((op1, num_str1), (op_str2, num_str2)));
+                    }
+                }
+            }
+        }
+    }
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -102,5 +134,80 @@ mod tests {
         let field_path_separator = ".";
         let result = parse_search_path(search_path, field_path_separator);
         assert_eq!(result, Ok((vec!["a", "b", "c"], "field")));
+    }
+
+    #[test]
+    fn test_parse_numeric_search_term_valid() {
+        assert_eq!(parse_numeric_search_term("<=10"), Some(("<=", "10")));
+        assert_eq!(parse_numeric_search_term(">=20"), Some((">=", "20")));
+        assert_eq!(parse_numeric_search_term("<5"), Some(("<", "5")));
+        assert_eq!(parse_numeric_search_term(">25"), Some((">", "25")));
+    }
+
+    #[test]
+    fn test_parse_numeric_search_term_invalid() {
+        assert_eq!(parse_numeric_search_term("!=10"), None);
+        assert_eq!(parse_numeric_search_term("~10"), None);
+        assert_eq!(parse_numeric_search_term("=10"), None);
+        assert_eq!(parse_numeric_search_term("10<"), None);
+        assert_eq!(parse_numeric_search_term("10>"), None);
+        assert_eq!(parse_numeric_search_term("10<="), None);
+        assert_eq!(parse_numeric_search_term("10>="), None);
+    }
+
+    #[test]
+    fn test_parse_numeric_search_term_no_operator() {
+        assert_eq!(parse_numeric_search_term("10"), None);
+        assert_eq!(parse_numeric_search_term("abc"), None);
+        assert_eq!(parse_numeric_search_term(""), None);
+    }
+
+    #[test]
+    fn test_parse_numeric_range_term_valid() {
+        assert_eq!(
+            parse_numeric_range_term(">10<20"),
+            Some(((">", "10"), ("<", "20")))
+        );
+        assert_eq!(
+            parse_numeric_range_term(">=5<=15"),
+            Some(((">=", "5"), ("<=", "15")))
+        );
+        assert_eq!(
+            parse_numeric_range_term("<=25>=1"),
+            Some((("<=", "25"), (">=", "1")))
+        );
+        assert_eq!(
+            parse_numeric_range_term(">=1<=25"),
+            Some(((">=", "1"), ("<=", "25")))
+        );
+    }
+
+    #[test]
+    fn test_parse_numeric_range_term_invalid() {
+        assert_eq!(parse_numeric_range_term(">10-20"), None);
+        assert_eq!(parse_numeric_range_term("10"), None);
+        assert_eq!(parse_numeric_range_term("><1020"), None);
+        assert_eq!(parse_numeric_range_term("1020<>"), None);
+        assert_eq!(parse_numeric_range_term("=10<20"), None); // invalid op
+        assert_eq!(parse_numeric_range_term(">10=20"), None); // invalid op
+    }
+
+    #[test]
+    fn test_parse_numeric_range_term_single_number_search() {
+        assert_eq!(parse_numeric_range_term("10"), None);
+        assert_eq!(parse_numeric_range_term("abc"), None);
+    }
+
+    #[test]
+    fn test_parse_numeric_range_term_empty() {
+        assert_eq!(parse_numeric_range_term(""), None);
+    }
+
+    #[test]
+    fn test_parse_numeric_range_term_operators_only() {
+        assert_eq!(parse_numeric_range_term("><"), None);
+        assert_eq!(parse_numeric_range_term("<>"), None);
+        assert_eq!(parse_numeric_range_term(">="), None);
+        assert_eq!(parse_numeric_range_term("<="), None);
     }
 }
