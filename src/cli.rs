@@ -11,7 +11,8 @@ use clap::Parser;
                 srch key value -j '{\"key\": \"value\"}'\t\t# Search string input
                 cat data.json | srch name \"Max\"\t\t\t# Search stdin input
                 srch key_nested_value \"test\" data.json -f \"_\"\t# Custom separator
-                srch index \"[0-9]\" data.json --hide-values\t# Show paths only"
+                srch index \"[0-9]\" data.json --hide-values\t# Show paths only
+                srch numericValue \">50<100\" data.json -n\t# Numeric search"
 )]
 #[command(version)]
 pub struct Cli {
