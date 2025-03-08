@@ -3,6 +3,7 @@ use regex::Regex;
 
 mod cli;
 mod file;
+mod format;
 mod parse;
 mod syntax;
 
@@ -20,8 +21,8 @@ fn main() {
             let search_context = SearchContext {
                 search_regex: &search_regex,
                 single: args.single,
-                hide_value: args.hide_value,
                 field_path_separator: &args.field_path_separator,
+                numeric_search: args.numeric_search,
             };
             match parse_search_path(&args.search_path, search_context.field_path_separator) {
                 Ok((field_path_parts, field_name)) => {
@@ -32,6 +33,7 @@ fn main() {
                             field_name,
                             &search_context,
                             args.path_output,
+                            args.hide_value,
                         );
                     } else {
                         handle_string_or_stdin_input(
@@ -39,6 +41,7 @@ fn main() {
                             &field_path_parts,
                             field_name,
                             &search_context,
+                            args.hide_value,
                         );
                     }
                 }
