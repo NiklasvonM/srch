@@ -5,9 +5,9 @@ use crate::syntax::{parse_numeric_range_term, parse_numeric_search_term};
 
 pub struct SearchContext<'a> {
     pub search_regex: &'a Regex,
-    pub single: bool,
+    pub single_result_only: bool,
     pub field_path_separator: &'a str,
-    pub numeric_search: bool,
+    pub numeric_search_enabled: bool,
 }
 
 #[derive(Debug, PartialEq)]
@@ -17,25 +17,22 @@ pub struct SearchResult {
 }
 
 impl SearchResult {
+    // Associated function for creating SearchResult
     fn create(
-        current_path: &Vec<String>,
+        current_path: &[String],
         field_name: &str,
         value: &Value,
         search_context: &SearchContext,
-    ) -> SearchResult {
-        let full_path = format!(
-            "{}{}{}",
-            current_path.join(search_context.field_path_separator),
-            if current_path.is_empty() {
-                ""
-            } else {
-                search_context.field_path_separator
-            },
-            field_name
-        );
+    ) -> Self {
+        let mut full_path = current_path.join(search_context.field_path_separator);
+        if !current_path.is_empty() {
+            full_path.push_str(search_context.field_path_separator);
+        }
+        full_path.push_str(field_name);
+
         SearchResult {
             json_path: full_path,
-            value: value_to_string(value).trim_matches('"').to_string(),
+            value: value.to_string().trim_matches('"').to_string(),
         }
     }
 }
@@ -62,7 +59,7 @@ fn search_json_value(
             current_path,
             search_context,
         ),
-        _ => None, // For other types like String, Number, Bool, no further search, return None
+        _ => None, // No further search for primitives
     }
 }
 
@@ -85,34 +82,30 @@ fn search_object(
             next_path.clone(),
             search_context,
         ) {
-            if search_context.single {
-                return Some(recursive_results); // Early return if single and found result in recursion
+            results.extend(recursive_results);
+            if search_context.single_result_only {
+                return Some(results); // Early return in single result mode
             }
-            results.extend(recursive_results); // Otherwise extend all results.
         }
-        next_path.pop(); // Backtrack for next key
+        next_path.pop(); // Backtrack
     }
 
-    let check_results = check_object_match(
+    if let Some(found_value) = check_object_match(
         obj,
         field_path_parts,
         field_name,
         &current_path,
         search_context,
-    );
-    if search_context.single && !check_results.is_empty() {
-        return Some(check_results); // Early return if single and found result in check
+    ) {
+        results.push(found_value);
+        if search_context.single_result_only {
+            return Some(results);
+        }
     }
-    if !check_results.is_empty() {
-        results.extend(check_results);
-    }
-
     if !results.is_empty() {
-        // In non-single mode, return all found results at this level and below.
-        // In single mode, if we found anything at this level or below, return it.
         Some(results)
     } else {
-        None // No results found in this object and its children
+        None
     }
 }
 
@@ -122,85 +115,79 @@ fn check_object_match(
     field_name: &str,
     current_path: &Vec<String>,
     search_context: &SearchContext,
-) -> Vec<SearchResult> {
-    let mut results: Vec<SearchResult> = Vec::new();
-    let path_matches = if !field_path_parts.is_empty() {
-        let mut current_path_index = 0;
-        let mut field_path_index = 0;
-
-        while current_path_index < current_path.len() && field_path_index < field_path_parts.len() {
-            if current_path[current_path_index] == field_path_parts[field_path_index] {
-                field_path_index += 1;
-            }
-            current_path_index += 1;
-        }
-        field_path_index == field_path_parts.len()
-    } else {
-        true // field_path_parts is empty, so path always matches
-    };
-
-    if !path_matches {
-        return results;
+) -> Option<SearchResult> {
+    if !path_matches(field_path_parts, current_path) {
+        return None;
     }
 
     let Some(value) = obj.get(field_name) else {
-        return results; // Field name not found, return empty results
+        return None; // Field not found
     };
 
-    if search_context.numeric_search {
-        if let Some(((op1, num_str1), (op2, num_str2))) =
-            parse_numeric_range_term(search_context.search_regex.as_str())
-        {
-            if let (Ok(target_num1), Ok(target_num2), Some(json_num)) = (
-                num_str1.parse::<f64>(),
-                num_str2.parse::<f64>(),
-                value.as_f64(),
-            ) {
-                if compare_number_range(json_num, target_num1, op1, target_num2, op2) {
-                    results.push(SearchResult::create(
-                        current_path,
-                        field_name,
-                        value,
-                        search_context,
-                    ));
-                }
-            } else if let Some((op, num_str)) =
-                parse_numeric_search_term(search_context.search_regex.as_str())
-            {
-                // Fallback to single numeric comparison if range parsing fails
-                if let (Ok(target_num), Some(json_num)) = (num_str.parse::<f64>(), value.as_f64()) {
-                    if compare_numbers(json_num, target_num, op) {
-                        results.push(SearchResult::create(
-                            current_path,
-                            field_name,
-                            value,
-                            search_context,
-                        ));
-                    }
-                }
-            }
-        } else if let Some((op, num_str)) =
-            parse_numeric_search_term(search_context.search_regex.as_str())
-        {
-            // Fallback to single numeric comparison if range parsing fails
-            if let (Ok(target_num), Some(json_num)) = (num_str.parse::<f64>(), value.as_f64()) {
-                if compare_numbers(json_num, target_num, op) {
-                    results.push(SearchResult::create(
-                        current_path,
-                        field_name,
-                        value,
-                        search_context,
-                    ));
-                }
+    if search_context.numeric_search_enabled {
+        check_numeric_match(value, field_name, current_path, search_context)
+    } else {
+        check_regex_match(value, field_name, current_path, search_context)
+    }
+}
+
+fn path_matches(field_path_parts: &[&str], current_path: &Vec<String>) -> bool {
+    if field_path_parts.is_empty() {
+        true
+    } else {
+        field_path_parts
+            .iter()
+            .zip(current_path.iter())
+            .all(|(path_part, current_part)| path_part == current_part)
+            && field_path_parts.len() <= current_path.len()
+    }
+}
+
+fn check_numeric_match(
+    value: &Value,
+    field_name: &str,
+    current_path: &Vec<String>,
+    search_context: &SearchContext,
+) -> Option<SearchResult> {
+    if let Some(range) = parse_numeric_range_term(search_context.search_regex.as_str()) {
+        if let (Ok(target_num1), Ok(target_num2), Some(json_num)) = (
+            range.0 .1.parse::<f64>(),
+            range.1 .1.parse::<f64>(),
+            value.as_f64(),
+        ) {
+            if compare_number_range(json_num, target_num1, range.0 .0, target_num2, range.1 .0) {
+                return Some(SearchResult::create(
+                    current_path,
+                    field_name,
+                    value,
+                    search_context,
+                ));
             }
         }
-    } else {
-        // Fallback to regex search if not numeric search
-        if search_context
-            .search_regex
-            .is_match(&value_to_string(value).trim_matches('"'))
-        {
-            results.push(SearchResult::create(
+    } else if let Some(term) = parse_numeric_search_term(search_context.search_regex.as_str()) {
+        if let (Ok(target_num), Some(json_num)) = (term.1.parse::<f64>(), value.as_f64()) {
+            if compare_numbers(json_num, target_num, term.0) {
+                return Some(SearchResult::create(
+                    current_path,
+                    field_name,
+                    value,
+                    search_context,
+                ));
+            }
+        }
+    }
+    None
+}
+
+fn check_regex_match(
+    value: &Value,
+    field_name: &str,
+    current_path: &Vec<String>,
+    search_context: &SearchContext,
+) -> Option<SearchResult> {
+    if value.is_string() || value.is_number() || value.is_boolean() {
+        if search_context.search_regex.is_match(&value.to_string()) {
+            return Some(SearchResult::create(
                 current_path,
                 field_name,
                 value,
@@ -209,7 +196,7 @@ fn check_object_match(
         }
     }
 
-    results
+    None
 }
 
 fn compare_numbers(json_num: f64, target_num: f64, op: &str) -> bool {
@@ -230,10 +217,7 @@ fn compare_number_range(
     target_num2: f64,
     op2: &str,
 ) -> bool {
-    let condition1 = compare_numbers(json_num, target_num1, op1);
-    let condition2 = compare_numbers(json_num, target_num2, op2);
-
-    condition1 && condition2
+    compare_numbers(json_num, target_num1, op1) && compare_numbers(json_num, target_num2, op2)
 }
 
 fn search_array(
@@ -254,29 +238,17 @@ fn search_array(
             next_path,
             search_context,
         ) {
-            if search_context.single {
-                return Some(recursive_results); // Early return if single and found result in recursion
+            if search_context.single_result_only {
+                return Some(recursive_results); // Early return in single result mode
             }
-            results.extend(recursive_results); // Otherwise extend all results.
+            results.extend(recursive_results);
         }
     }
 
     if !results.is_empty() {
-        // In non-single mode, return all found results at this level and below.
-        // In single mode, if we found anything at this level or below, return it.
         Some(results)
     } else {
-        None // No results found in this array and its children
-    }
-}
-
-// Helper function to convert serde_json::Value to String for comparison
-fn value_to_string(value: &Value) -> String {
-    match value {
-        Value::String(s) => s.clone(),
-        Value::Bool(b) => b.to_string(),
-        Value::Number(n) => n.to_string(),
-        _ => value.to_string(),
+        None
     }
 }
 
@@ -287,17 +259,15 @@ pub fn process_json_input(
     search_context: &SearchContext,
 ) -> Option<Vec<SearchResult>> {
     match serde_json::from_str(&json_input_raw) {
-        Ok(json_value) => {
-            search_json_value(
-                &json_value,
-                field_path_parts,
-                field_name,
-                Vec::new(), // Initial path is empty
-                search_context,
-            )
-        }
+        Ok(json_value) => search_json_value(
+            &json_value,
+            field_path_parts,
+            field_name,
+            Vec::new(),
+            search_context,
+        ),
         Err(e) => {
-            eprintln!("Error parsing JSON input: {}", e);
+            eprintln!("JSON parsing error: {}", e);
             None
         }
     }
@@ -328,9 +298,9 @@ mod tests {
             Vec::new(),
             &SearchContext {
                 search_regex: &search_regex,
-                single: true,
+                single_result_only: true,
                 field_path_separator: ".",
-                numeric_search: false,
+                numeric_search_enabled: false,
             },
         )
         .unwrap_or_default();
@@ -359,9 +329,9 @@ mod tests {
             Vec::new(),
             &SearchContext {
                 search_regex: &search_regex,
-                single: true,
+                single_result_only: true,
                 field_path_separator: ".",
-                numeric_search: false,
+                numeric_search_enabled: false,
             },
         )
         .unwrap_or_default();
@@ -392,9 +362,9 @@ mod tests {
             Vec::new(),
             &SearchContext {
                 search_regex: &search_regex,
-                single: false,
+                single_result_only: false,
                 field_path_separator: ".",
-                numeric_search: false,
+                numeric_search_enabled: false,
             },
         )
         .unwrap_or_default();
@@ -423,9 +393,9 @@ mod tests {
             Vec::new(),
             &SearchContext {
                 search_regex: &search_regex,
-                single: false,
+                single_result_only: false,
                 field_path_separator: ".",
-                numeric_search: false,
+                numeric_search_enabled: false,
             },
         )
         .unwrap_or_default();
@@ -457,9 +427,9 @@ mod tests {
             Vec::new(),
             &SearchContext {
                 search_regex: &search_regex,
-                single: false,
+                single_result_only: false,
                 field_path_separator: ".",
-                numeric_search: false,
+                numeric_search_enabled: false,
             },
         )
         .unwrap_or_default();
@@ -479,9 +449,9 @@ mod tests {
             Vec::new(),
             &SearchContext {
                 search_regex: &search_regex,
-                single: false,
+                single_result_only: false,
                 field_path_separator: ".",
-                numeric_search: false,
+                numeric_search_enabled: false,
             },
         )
         .unwrap_or_default();
@@ -506,9 +476,9 @@ mod tests {
             field_name,
             &SearchContext {
                 search_regex: &search_regex,
-                single: false,
+                single_result_only: false,
                 field_path_separator: ".",
-                numeric_search: false,
+                numeric_search_enabled: false,
             },
         )
         .unwrap_or_default();
@@ -533,9 +503,9 @@ mod tests {
             field_name,
             &SearchContext {
                 search_regex: &search_regex,
-                single: false,
+                single_result_only: false,
                 field_path_separator: ".",
-                numeric_search: false,
+                numeric_search_enabled: false,
             },
         )
         .unwrap_or_default();
@@ -555,9 +525,9 @@ mod tests {
             Vec::new(),
             &SearchContext {
                 search_regex: &search_regex,
-                single: false,
+                single_result_only: false,
                 field_path_separator: ".",
-                numeric_search: true,
+                numeric_search_enabled: true,
             },
         )
         .unwrap_or_default();
@@ -583,9 +553,9 @@ mod tests {
             Vec::new(),
             &SearchContext {
                 search_regex: &search_regex,
-                single: false,
+                single_result_only: false,
                 field_path_separator: ".",
-                numeric_search: true,
+                numeric_search_enabled: true,
             },
         )
         .unwrap_or_default();
@@ -611,9 +581,9 @@ mod tests {
             Vec::new(),
             &SearchContext {
                 search_regex: &search_regex,
-                single: false,
+                single_result_only: false,
                 field_path_separator: ".",
-                numeric_search: true,
+                numeric_search_enabled: true,
             },
         )
         .unwrap_or_default();
@@ -633,9 +603,9 @@ mod tests {
             Vec::new(),
             &SearchContext {
                 search_regex: &search_regex,
-                single: false,
+                single_result_only: false,
                 field_path_separator: ".",
-                numeric_search: true,
+                numeric_search_enabled: true,
             },
         )
         .unwrap_or_default();
@@ -655,9 +625,9 @@ mod tests {
             Vec::new(),
             &SearchContext {
                 search_regex: &search_regex,
-                single: false,
+                single_result_only: false,
                 field_path_separator: ".",
-                numeric_search: true,
+                numeric_search_enabled: true,
             },
         )
         .unwrap_or_default();
@@ -683,9 +653,9 @@ mod tests {
             Vec::new(),
             &SearchContext {
                 search_regex: &search_regex,
-                single: false,
+                single_result_only: false,
                 field_path_separator: ".",
-                numeric_search: true,
+                numeric_search_enabled: true,
             },
         )
         .unwrap_or_default();
@@ -705,9 +675,9 @@ mod tests {
             Vec::new(),
             &SearchContext {
                 search_regex: &search_regex,
-                single: false,
+                single_result_only: false,
                 field_path_separator: ".",
-                numeric_search: true,
+                numeric_search_enabled: true,
             },
         )
         .unwrap_or_default();
@@ -727,9 +697,9 @@ mod tests {
             Vec::new(),
             &SearchContext {
                 search_regex: &search_regex,
-                single: false,
+                single_result_only: false,
                 field_path_separator: ".",
-                numeric_search: true,
+                numeric_search_enabled: true,
             },
         )
         .unwrap_or_default();
@@ -755,9 +725,9 @@ mod tests {
             Vec::new(),
             &SearchContext {
                 search_regex: &search_regex,
-                single: false,
+                single_result_only: false,
                 field_path_separator: ".",
-                numeric_search: true,
+                numeric_search_enabled: true,
             },
         )
         .unwrap_or_default();
@@ -777,9 +747,9 @@ mod tests {
             Vec::new(),
             &SearchContext {
                 search_regex: &search_regex,
-                single: false,
+                single_result_only: false,
                 field_path_separator: ".",
-                numeric_search: true,
+                numeric_search_enabled: true,
             },
         )
         .unwrap_or_default();
@@ -799,9 +769,9 @@ mod tests {
             Vec::new(),
             &SearchContext {
                 search_regex: &search_regex,
-                single: false,
+                single_result_only: false,
                 field_path_separator: ".",
-                numeric_search: true,
+                numeric_search_enabled: true,
             },
         )
         .unwrap_or_default();

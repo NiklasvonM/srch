@@ -20,9 +20,9 @@ fn main() {
         Ok(search_regex) => {
             let search_context = SearchContext {
                 search_regex: &search_regex,
-                single: args.single,
+                single_result_only: args.single,
                 field_path_separator: &args.field_path_separator,
-                numeric_search: args.numeric_search,
+                numeric_search_enabled: args.numeric_search,
             };
             match parse_search_path(&args.search_path, search_context.field_path_separator) {
                 Ok((field_path_parts, field_name)) => {
