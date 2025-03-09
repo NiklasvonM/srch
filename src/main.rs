@@ -1,4 +1,5 @@
 use clap::Parser;
+use format::FormatContext;
 use regex::Regex;
 
 mod cli;
@@ -26,14 +27,18 @@ fn main() {
             };
             match parse_search_path(&args.search_path, search_context.field_path_separator) {
                 Ok((field_path_parts, field_name)) => {
+                    let format_context = FormatContext {
+                        field_path_separator: args.field_path_separator.clone(),
+                        hide_value: args.hide_value,
+                        path_output: args.path_output,
+                    };
                     if !json_files.is_empty() {
                         handle_file_input(
                             &json_files,
                             &field_path_parts,
                             field_name,
                             &search_context,
-                            args.path_output,
-                            args.hide_value,
+                            &format_context,
                         );
                     } else {
                         handle_string_or_stdin_input(
@@ -41,7 +46,7 @@ fn main() {
                             &field_path_parts,
                             field_name,
                             &search_context,
-                            args.hide_value,
+                            &format_context,
                         );
                     }
                 }
