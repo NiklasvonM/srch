@@ -112,9 +112,7 @@ fn check_object_match(
         return None;
     }
 
-    let Some(value) = obj.get(field_name) else {
-        return None; // Field not found
-    };
+    let value = obj.get(field_name)?;
 
     if search_context.numeric_search_enabled {
         check_numeric_match(value, field_name, current_path, search_context)
