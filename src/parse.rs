@@ -1,7 +1,7 @@
 use regex::Regex;
 use serde_json::Value;
 
-use crate::syntax::{parse_numeric_range_term, parse_numeric_search_term};
+use crate::syntax::NumericSearchTerm;
 
 pub struct SearchContext<'a> {
     pub search_regex: &'a Regex,
@@ -105,7 +105,7 @@ fn check_object_match(
     obj: &serde_json::Map<String, Value>,
     field_path_parts: &[&str],
     field_name: &str,
-    current_path: &Vec<String>,
+    current_path: &[String],
     search_context: &SearchContext,
 ) -> Option<SearchResult> {
     if !path_matches(field_path_parts, current_path) {
@@ -121,7 +121,7 @@ fn check_object_match(
     }
 }
 
-fn path_matches(field_path_parts: &[&str], current_path: &Vec<String>) -> bool {
+fn path_matches(field_path_parts: &[&str], current_path: &[String]) -> bool {
     if field_path_parts.is_empty() {
         true
     } else {
@@ -136,22 +136,14 @@ fn path_matches(field_path_parts: &[&str], current_path: &Vec<String>) -> bool {
 fn check_numeric_match(
     value: &Value,
     field_name: &str,
-    current_path: &Vec<String>,
+    current_path: &[String],
     search_context: &SearchContext,
 ) -> Option<SearchResult> {
-    if let Some(range) = parse_numeric_range_term(search_context.search_regex.as_str()) {
-        if let (Ok(target_num1), Ok(target_num2), Some(json_num)) = (
-            range.0 .1.parse::<f64>(),
-            range.1 .1.parse::<f64>(),
-            value.as_f64(),
-        ) {
-            if compare_number_range(json_num, target_num1, range.0 .0, target_num2, range.1 .0) {
-                return Some(SearchResult::create(current_path, field_name, value));
-            }
-        }
-    } else if let Some(term) = parse_numeric_search_term(search_context.search_regex.as_str()) {
-        if let (Ok(target_num), Some(json_num)) = (term.1.parse::<f64>(), value.as_f64()) {
-            if compare_numbers(json_num, target_num, term.0) {
+    if let Some(numeric_term) =
+        NumericSearchTerm::from_search_term(search_context.search_regex.as_str())
+    {
+        if let Some(json_num) = value.as_f64() {
+            if numeric_term.matches(json_num) {
                 return Some(SearchResult::create(current_path, field_name, value));
             }
         }
@@ -162,41 +154,20 @@ fn check_numeric_match(
 fn check_regex_match(
     value: &Value,
     field_name: &str,
-    current_path: &Vec<String>,
+    current_path: &[String],
     search_context: &SearchContext,
 ) -> Option<SearchResult> {
-    if value.is_string() || value.is_number() || value.is_boolean() {
-        if search_context.search_regex.is_match(&value.to_string()) {
-            return Some(SearchResult::create(current_path, field_name, value));
-        }
+    if (value.is_string() || value.is_number() || value.is_boolean())
+        && search_context.search_regex.is_match(&value.to_string())
+    {
+        return Some(SearchResult::create(current_path, field_name, value));
     }
 
     None
 }
 
-fn compare_numbers(json_num: f64, target_num: f64, op: &str) -> bool {
-    match op {
-        ">" => json_num > target_num,
-        "<" => json_num < target_num,
-        ">=" => json_num >= target_num,
-        "<=" => json_num <= target_num,
-        "==" => json_num == target_num,
-        _ => false,
-    }
-}
-
-fn compare_number_range(
-    json_num: f64,
-    target_num1: f64,
-    op1: &str,
-    target_num2: f64,
-    op2: &str,
-) -> bool {
-    compare_numbers(json_num, target_num1, op1) && compare_numbers(json_num, target_num2, op2)
-}
-
 fn search_array(
-    arr: &Vec<Value>,
+    arr: &[Value],
     field_path_parts: &[&str],
     field_name: &str,
     current_path: Vec<String>,

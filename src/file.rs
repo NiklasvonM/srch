@@ -21,10 +21,8 @@ fn process_file(
 ) -> Vec<SearchResult> {
     match fs::read_to_string(file_path) {
         Ok(file_content) => {
-            match process_json_input(file_content, field_path_parts, field_name, search_context) {
-                Some(results) => results,
-                None => Vec::new(),
-            }
+            process_json_input(file_content, field_path_parts, field_name, search_context)
+                .unwrap_or_default()
         }
         Err(e) => {
             eprintln!("Error reading file '{}': {}", file_path, e);
